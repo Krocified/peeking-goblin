@@ -39,11 +39,31 @@ function renderCandidates(payload) {
   const intro = payload.candidates.length > 1 ? 'More than one card matched. Choose the exact card to continue.' : 'Did you mean one of these cards?'
   results.innerHTML = `
     <div class="candidate-header"><p class="eyebrow">${payload.candidates.length > 1 ? 'Ambiguous search' : 'Suggested match'}</p><h2>${heading}</h2><p>${escapeHtml(intro)}</p></div>
-    <div class="candidate-list">${payload.candidates.map((candidate) => `<button class="candidate" data-card-title="${escapeHtml(candidate.name)}" type="button">${candidate.imageUrl ? `<img class="candidate-image" src="${escapeHtml(candidate.imageUrl)}" alt="" loading="lazy" />` : '<span class="candidate-image placeholder" aria-hidden="true"></span>'}<span class="candidate-name"><strong>${escapeHtml(candidate.name)}</strong><small>${escapeHtml(candidate.source)}</small></span><span aria-hidden="true">↗</span></button>`).join('') || '<p class="empty">Try the Japanese name or check the spelling.</p>'}</div>`
+    <div class="candidate-list">${payload.candidates.map((candidate) => `<button class="candidate" data-card-title="${escapeHtml(candidate.name)}" type="button">${candidate.imageUrl ? `<img class="candidate-image" src="${escapeHtml(candidate.imageUrl)}" alt="" loading="lazy" />` : '<span class="candidate-image placeholder" aria-hidden="true"></span>'}<span class="candidate-name"><strong>${escapeHtml(candidate.name)}</strong><small>${escapeHtml(candidate.source)}</small></span><span aria-hidden="true">↗</span></button>`).join('') || '<p class="empty">Try the Japanese name or check the spelling.</p>'}</div>
+    ${payload.pagination?.hasMore ? '<button id="load-more-candidates" class="load-more" type="button">Load more card names</button>' : ''}`
   results.querySelectorAll('[data-card-title]').forEach((button) => button.addEventListener('click', () => {
     input.value = button.dataset.cardTitle
     searchCard(button.dataset.cardTitle, button.dataset.cardTitle)
   }))
+  results.querySelector('#load-more-candidates')?.addEventListener('click', async (event) => {
+    event.currentTarget.disabled = true
+    event.currentTarget.textContent = 'Loading…'
+    try {
+      const params = new URLSearchParams({ name: payload.query, offset: payload.pagination.nextOffset, candidates_only: '1' })
+      const response = await fetch(`${API_BASE}/api/card-price?${params}`)
+      const nextPage = await response.json()
+      if (!response.ok) throw new Error(nextPage.error || 'Could not load more cards')
+      renderCandidates({
+        ...nextPage,
+        query: payload.query,
+        candidates: [...payload.candidates, ...nextPage.candidates],
+      })
+    } catch (error) {
+      setStatus(error.message, 'error')
+      event.currentTarget.disabled = false
+      event.currentTarget.textContent = 'Load more card names'
+    }
+  })
 }
 
 async function searchCard(name, title = null) {
