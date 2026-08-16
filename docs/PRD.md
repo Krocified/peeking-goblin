@@ -62,6 +62,7 @@ If Yugipedia returns multiple possible matches, the UI lists all returned card n
 - Show each candidate's Yugipedia card art when available; keep the candidate usable as text when art is missing.
 - Exclude Yugipedia pages that are archetypes or other non-card pages; a valid candidate must be a physical card page.
 - Exclude candidates labeled as Master Duel, anime, game, or video-game variants.
+- Exclude Rush Duel cards and pages from the OCG candidate list.
 
 ### Name Resolution
 
@@ -305,6 +306,8 @@ Client implementation rules:
 - Searching `Maxx "C"` resolves and displays `増殖するＧ`.
 - An ambiguous query lists candidate card names before any Yuyu-tei price request.
 - Broad searches such as `goblin` can load additional physical-card candidates page by page.
+- Candidate thumbnails use direct Yugipedia image URLs when available and retain a visible placeholder when an image cannot load.
+- Rush Duel cards never appear in the OCG candidate list.
 - A typo such as `Fidraulys` suggests `Fydraulis Harmonia` and requires the user to select it.
 - Searching `Labrynth` does not show the archetype page or Master Duel/game/anime variants.
 - When a card's English and Japanese names differ, the card header uses the English name and shows the Japanese base name separately.
