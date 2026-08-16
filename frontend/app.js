@@ -3,6 +3,10 @@ const form = document.querySelector('#search-form')
 const input = document.querySelector('#card-name')
 const status = document.querySelector('#status')
 const results = document.querySelector('#results')
+const imageDialog = document.querySelector('#image-dialog')
+const imagePreview = document.querySelector('#image-preview')
+const imageCaption = document.querySelector('#image-caption')
+const closeImage = document.querySelector('#close-image')
 let data = null
 
 const money = (value, currency) => value == null ? '—' : new Intl.NumberFormat('en-US', {
@@ -22,6 +26,13 @@ function optionList(values, selected) {
   return values.map((value) => `<option value="${escapeHtml(value)}" ${selected.has(value) ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')
 }
 
+function showImage(url, alt) {
+  imagePreview.src = url
+  imagePreview.alt = alt
+  imageCaption.textContent = alt
+  imageDialog.showModal()
+}
+
 function render() {
   if (!data) return
   const rarity = new Set([...results.querySelector('#rarity-filter').selectedOptions].map((option) => option.value))
@@ -39,7 +50,7 @@ function render() {
   results.querySelector('#result-count').textContent = `${listings.length} listing${listings.length === 1 ? '' : 's'}`
   results.querySelector('#listing-body').innerHTML = listings.map((listing) => `
     <article class="listing">
-      ${listing.imageUrl ? `<img class="listing-image" src="${escapeHtml(listing.imageUrl)}" alt="" loading="lazy" />` : '<div class="listing-image placeholder" aria-hidden="true"></div>'}
+      ${listing.imageUrl ? `<button class="image-button listing-image" data-image="${escapeHtml(listing.imageUrl)}" data-image-alt="${escapeHtml(listing.setNumber || 'Card image')}" type="button"><img src="${escapeHtml(listing.imageUrl)}" alt="" loading="lazy" /></button>` : '<div class="listing-image placeholder" aria-hidden="true"></div>'}
       <div class="listing-main">
         <span class="rarity">${escapeHtml(listing.rarity || 'Rarity unknown')}</span>
         <strong>${escapeHtml(listing.setNumber || 'Set number unknown')}</strong>
@@ -56,7 +67,7 @@ function renderResults() {
   results.hidden = false
   results.innerHTML = `
     <div class="card-header">
-      ${cardImage ? `<img class="card-image" src="${escapeHtml(cardImage)}" alt="${escapeHtml(card.canonicalName)} card image" />` : ''}
+      ${cardImage ? `<button class="image-button card-image" data-image="${escapeHtml(cardImage)}" data-image-alt="${escapeHtml(card.canonicalName)} card image" type="button"><img src="${escapeHtml(cardImage)}" alt="${escapeHtml(card.canonicalName)} card image" /></button>` : ''}
       <div class="card-identity"><p class="eyebrow">Resolved card</p><h2>${escapeHtml(card.canonicalName)}</h2><p class="japanese">${escapeHtml(card.japaneseBaseName)}</p></div>
       <div class="card-actions">${card.englishText ? '<button id="toggle-text" class="text-toggle" type="button" aria-expanded="false">Show English text</button>' : ''}<a class="wiki-link" href="${escapeHtml(card.sourceUrl)}" target="_blank" rel="noreferrer">Yugipedia ↗</a></div>
     </div>
@@ -71,6 +82,7 @@ function renderResults() {
     <div class="results-line"><strong id="result-count"></strong><span>${escapeHtml(warnings.join(' '))}</span></div>
     <div id="listing-body" class="listing-list"></div>`
   results.querySelectorAll('select').forEach((control) => control.addEventListener('change', render))
+  results.querySelectorAll('[data-image]').forEach((button) => button.addEventListener('click', () => showImage(button.dataset.image, button.dataset.imageAlt)))
   results.querySelectorAll('[data-clear-filter]').forEach((button) => button.addEventListener('click', () => {
     results.querySelector(`#${button.dataset.clearFilter}`).selectedIndex = -1
     render()
@@ -110,4 +122,9 @@ form.addEventListener('submit', async (event) => {
   } finally {
     form.querySelector('button').disabled = false
   }
+})
+
+closeImage.addEventListener('click', () => imageDialog.close())
+imageDialog.addEventListener('click', (event) => {
+  if (event.target === imageDialog) imageDialog.close()
 })
