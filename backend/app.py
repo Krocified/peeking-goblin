@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import unicodedata
 from difflib import SequenceMatcher
 from urllib.parse import quote, urlencode
 
@@ -306,6 +307,8 @@ def stock_state(product):
 
 
 def fetch_yuyutei(japanese_name, card_sets):
+    # ponytail: NFKC flattens full-width "Ｄ－ＨＥＲＯ" to "D-HERO"; Yuyu-tei only matches half-width
+    japanese_name = unicodedata.normalize("NFKC", japanese_name).replace("\u2010", "-")
     response = session.get(YUYUTEI_SEARCH_URL, params={"search_word": japanese_name}, timeout=REQUEST_TIMEOUT_SECONDS)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
@@ -399,7 +402,7 @@ def card_price(name, selected_title=None, page=0, candidates_only=False):
         "filters": available_filters(listings),
         "listings": listings,
         "warnings": warnings,
-        "yuyuteiSearchUrl": YUYUTEI_SEARCH_URL + "?" + urlencode({"search_word": card["japaneseBaseName"]}),
+        "yuyuteiSearchUrl": YUYUTEI_SEARCH_URL + "?" + urlencode({"search_word": unicodedata.normalize("NFKC", card["japaneseBaseName"]).replace("\u2010", "-")}),
     }
     cache[key] = {"expires": time.time() + CACHE_SECONDS, "value": result}
     return result
