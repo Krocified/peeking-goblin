@@ -93,9 +93,23 @@ def card_image_filename(wikitext):
     return fallback
 
 
-def fuzzy_names(name):
+def is_latin_query(name):
+    return any(char.isascii() and char.isalpha() for char in name)
+
+
+def is_rush_card(card):
+    sets = card.get("card_sets") or []
+    return bool(sets) and all(
+        set_info.get("set_code", "").upper().startswith("RD")
+        or "rush" in set_info.get("set_name", "").lower()
+        for set_info in sets
+    )
+
+
+def ygoprodeck_candidates(name):
     token = re.split(r"\s+", name.strip())[0]
     queries = [token[:length] for length in range(min(len(token), 8), 3, -1)]
+    queries.insert(0, name)
     matches = {}
     for query in queries:
         try:
@@ -104,11 +118,21 @@ def fuzzy_names(name):
             continue
         for card in result.get("data", []):
             card_name = card.get("name")
-            if card_name:
-                matches[card_name] = SequenceMatcher(None, name.lower(), card_name.lower()).ratio()
+            if card_name and not is_rush_card(card):
+                matches[card_name] = {
+                    "name": card_name,
+                    "source": "ygoprodeck",
+                    "imageUrl": (card.get("card_images") or [{}])[0].get("image_url_small"),
+                    "score": SequenceMatcher(None, name.lower(), card_name.lower()).ratio(),
+                }
         if matches:
             break
-    return [name for name, score in sorted(matches.items(), key=lambda item: item[1], reverse=True) if score >= 0.45][:5]
+    candidates = list(matches.values())
+    if query != name:
+        candidates = [candidate for candidate in candidates if candidate["score"] >= 0.45][:5]
+    for candidate in candidates:
+        candidate.pop("score", None)
+    return sorted(candidates, key=lambda item: item["name"].casefold())
 
 
 def page_wikitexts(titles):
@@ -179,6 +203,12 @@ def all_candidate_cards(name):
     if cached and cached["expires"] > time.time():
         return cached["value"]
 
+    if is_latin_query(name):
+        fast_candidates = ygoprodeck_candidates(name)
+        if fast_candidates:
+            candidate_cache[key] = {"expires": time.time() + CANDIDATE_CACHE_SECONDS, "value": fast_candidates}
+            return fast_candidates
+
     catalog = []
     offset = 0
     while True:
@@ -194,14 +224,8 @@ def all_candidate_cards(name):
             break
         offset = next_page_offset
 
-    if not catalog:
-        fuzzy = fuzzy_names(name)
-        pages = page_wikitexts(fuzzy)
-        catalog = [
-            {"name": title, "source": "ygoprodeck", "imageFilename": card_image_filename(pages.get(title, ""))}
-            for title in fuzzy
-            if is_physical_card(title, pages.get(title, ""))
-        ]
+    if not catalog and is_latin_query(name):
+        catalog = [{**candidate, "imageFilename": None} for candidate in ygoprodeck_candidates(name)]
 
     unique = {item["name"].casefold(): item for item in catalog}
     catalog = sorted(unique.values(), key=lambda item: item["name"].casefold())
@@ -217,7 +241,7 @@ def card_candidates(name, page=0):
     candidates = [
         {**item, "imageUrl": image_urls.get(item.get("imageFilename")) or (
             "https://yugipedia.com/wiki/Special:FilePath/" + quote(item["imageFilename"])
-            if item.get("imageFilename") else None
+            if item.get("imageFilename") else item.get("imageUrl")
         )}
         for item in items
     ]
