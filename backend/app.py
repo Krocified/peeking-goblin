@@ -485,12 +485,16 @@ def fetch_full_catalog():
     max_published = ""
     page = 1
     while True:
-        try:
-            body = get_json(TCG_CORNER_PRODUCTS_URL, {"limit": 250, "page": page})
-        except requests.RequestException as error:
-            if page > 1 and error.response is not None and error.response.status_code == 429:
-                break  # rate-limited past the end of the catalog
-            raise
+        body = None
+        for attempt in range(4):  # ponytail: retry 429s; a truncated catalog silently drops cards
+            try:
+                body = get_json(TCG_CORNER_PRODUCTS_URL, {"limit": 250, "page": page})
+                break
+            except requests.RequestException as error:
+                if error.response is not None and error.response.status_code == 429 and attempt < 3:
+                    time.sleep(3 * (attempt + 1))
+                    continue
+                raise
         products = body.get("products", [])
         if not products:
             break
@@ -691,11 +695,15 @@ if os.environ.get("WARM_AE", "1") != "0":
         except Exception as error:
             print(f"AE catalog warm failed: {error!r}")
         while True:
+            if not ae_catalog_ready() or time.time() >= ae_catalog_cache["expires"]:
+                try:
+                    refresh_catalog()  # cache expired or never loaded
+                except requests.RequestException as error:
+                    print(f"AE catalog refresh failed: {error!r}")
+                time.sleep(60)  # retry soon; don't leave aePending stuck for an hour
+                continue
             time.sleep(AE_PROBE_SECONDS)
             try:
-                if not ae_catalog_ready() or time.time() >= ae_catalog_cache["expires"]:
-                    refresh_catalog()  # cache expired
-                    continue
                 body = get_json(TCG_CORNER_PRODUCTS_URL, {"limit": 250, "page": 1})
                 newest = max((p.get("published_at") or "") for p in body.get("products", []))
                 if newest and newest != ae_catalog_cache["max_published"]:
