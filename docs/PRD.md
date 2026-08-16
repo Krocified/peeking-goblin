@@ -45,7 +45,7 @@ Example:
 7. The UI displays the card identity, source timestamps, and listings.
 8. Each result links to its Yuyu-tei source page.
 
-If Yugipedia returns multiple possible matches, the UI asks the user to choose before requesting prices. If no exact match is available, the UI offers the closest matches but does not silently guess.
+If Yugipedia returns multiple possible matches, the UI lists all returned card names and asks the user to choose before requesting prices. If no exact match is available, the backend uses a lightweight YGOPRODeck fuzzy-name query to offer a `Did you mean?` suggestion, but never silently guesses.
 
 ## 5. MVP Requirements
 
@@ -56,6 +56,8 @@ If Yugipedia returns multiple possible matches, the UI asks the user to choose b
 - Support Latin and Japanese characters, punctuation, quotes, and apostrophes.
 - Debounce autocomplete only if autocomplete is added; the initial MVP can be submit-driven.
 - Cancel or ignore stale responses when the user starts a newer search.
+- For ambiguous results, show every candidate returned by Yugipedia and require an explicit selection.
+- For likely typos, show up to five fuzzy suggestions and label them as suggestions rather than exact matches.
 
 ### Name Resolution
 
@@ -297,6 +299,8 @@ Client implementation rules:
 ## 14. MVP Acceptance Criteria
 
 - Searching `Maxx "C"` resolves and displays `増殖するＧ`.
+- An ambiguous query lists candidate card names before any Yuyu-tei price request.
+- A typo such as `Fidraulys` suggests `Fydraulis Harmonia` and requires the user to select it.
 - The backend generates a Yuyu-tei search URL with the URL-encoded Japanese base name and exposes normalized results to the frontend.
 - The frontend deploys statically to Vercel and calls the persistent backend without a Vercel Function or database.
 - The backend returns Yugipedia metadata, Yuyu-tei prices, and JPY/IDR conversion when sources are available.
