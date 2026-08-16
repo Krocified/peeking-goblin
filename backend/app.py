@@ -21,6 +21,7 @@ YUGIPEDIA_API_URL = os.environ.get("YUGIPEDIA_API_URL", "https://yugipedia.com/a
 YGOPRODECK_API_URL = os.environ.get("YGOPRODECK_API_URL", "https://db.ygoprodeck.com/api/v7/cardinfo.php")
 YUYUTEI_SEARCH_URL = os.environ.get("YUYUTEI_SEARCH_URL", "https://yuyu-tei.jp/sell/ygo/s/search")
 EXCHANGE_RATE_URL = os.environ.get("EXCHANGE_RATE_URL", "https://api.frankfurter.dev/v1/latest")
+CANDIDATE_PAGE_SIZE = int(os.environ.get("CANDIDATE_PAGE_SIZE", 20))
 allowed_origins = {
     origin.strip()
     for origin in os.environ.get("FRONTEND_ORIGINS", "*").split(",")
@@ -119,40 +120,62 @@ def is_physical_card(title, wikitext):
     return not non_card_variant and "{{CardTable2" in wikitext
 
 
-def card_candidates(name):
+def yugipedia_search_titles(name, offset):
     search = get_json(YUGIPEDIA_API_URL, {
-        "action": "opensearch",
-        "search": name,
-        "limit": 50,
-        "namespace": 0,
+        "action": "query",
+        "list": "search",
+        "srsearch": name,
+        "srnamespace": 0,
+        "srlimit": CANDIDATE_PAGE_SIZE,
+        "sroffset": offset,
         "format": "json",
     })
-    titles = search[1] if len(search) > 1 else []
-    if titles:
-        pages = page_wikitexts(titles)
-        return [
+    return (
+        [item["title"] for item in search.get("query", {}).get("search", [])],
+        search.get("continue", {}).get("sroffset"),
+    )
+
+
+def card_candidates(name, offset=0):
+    titles = []
+    next_offset = offset
+    while next_offset is not None and len(titles) < CANDIDATE_PAGE_SIZE:
+        page_titles, next_page_offset = yugipedia_search_titles(name, next_offset)
+        pages = page_wikitexts(page_titles)
+        titles.extend(
             {"name": title, "source": "yugipedia", "imageUrl": parse_card_image(pages.get(title, ""))}
-            for title in titles
+            for title in page_titles
             if is_physical_card(title, pages.get(title, ""))
-        ]
+        )
+        next_offset = next_page_offset
+
+    pagination = {
+        "offset": offset,
+        "nextOffset": next_offset,
+        "hasMore": next_offset is not None,
+    }
+    if titles:
+        return titles, pagination
+    if offset:
+        return [], pagination
     fuzzy = fuzzy_names(name)
     pages = page_wikitexts(fuzzy)
     return [
         {"name": title, "source": "ygoprodeck", "imageUrl": parse_card_image(pages.get(title, ""))}
         for title in fuzzy
         if is_physical_card(title, pages.get(title, ""))
-    ]
+    ], {"offset": 0, "nextOffset": None, "hasMore": False}
 
 
-def resolve_card(name, selected_title=None):
-    candidates = card_candidates(name) if not selected_title else []
+def resolve_card(name, selected_title=None, offset=0, candidates_only=False):
+    candidates, pagination = card_candidates(name, offset) if not selected_title else ([], None)
     title = selected_title or (
         candidates[0]["name"]
-        if len(candidates) == 1 and candidates[0]["source"] == "yugipedia"
+        if len(candidates) == 1 and candidates[0]["source"] == "yugipedia" and not candidates_only
         else None
     )
     if not title:
-        return {"selectionRequired": True, "query": name, "candidates": candidates}
+        return {"selectionRequired": True, "query": name, "candidates": candidates, "pagination": pagination}
 
     page = get_json(YUGIPEDIA_API_URL, {
         "action": "parse",
@@ -253,13 +276,15 @@ def available_filters(listings):
     }
 
 
-def card_price(name, selected_title=None):
+def card_price(name, selected_title=None, offset=0, candidates_only=False):
     key = f"{name.strip().lower()}::{(selected_title or '').lower()}"
+    if candidates_only or offset:
+        return resolve_card(name, selected_title, offset, candidates_only)
     cached = cache.get(key)
     if cached and cached["expires"] > time.time():
         return cached["value"]
 
-    card = resolve_card(name, selected_title)
+    card = resolve_card(name, selected_title, offset, candidates_only)
     if card.get("selectionRequired"):
         return card
     warnings = []
@@ -308,12 +333,17 @@ def health():
 def api_card_price():
     name = request.args.get("name", "").strip()
     selected_title = request.args.get("title", "").strip() or None
+    try:
+        offset = max(0, int(request.args.get("offset", 0)))
+    except ValueError:
+        return jsonify(error="Invalid candidate offset"), 400
+    candidates_only = request.args.get("candidates_only") == "1"
     if len(name) < 3:
         return jsonify(error="Enter at least 3 characters"), 400
     if len(name) > 100:
         return jsonify(error="Card name must be 100 characters or fewer"), 400
     try:
-        return jsonify(card_price(name, selected_title))
+        return jsonify(card_price(name, selected_title, offset, candidates_only))
     except (requests.RequestException, ValueError) as error:
         return jsonify(error=str(error)), 502
 
