@@ -58,6 +58,8 @@ If Yugipedia returns multiple possible matches, the UI lists all returned card n
 - Cancel or ignore stale responses when the user starts a newer search.
 - For ambiguous results, show every candidate returned by Yugipedia and require an explicit selection.
 - For likely typos, show up to five fuzzy suggestions and label them as suggestions rather than exact matches.
+- Exclude Yugipedia pages that are archetypes or other non-card pages; a valid candidate must be a physical card page.
+- Exclude candidates labeled as Master Duel, anime, game, or video-game variants.
 
 ### Name Resolution
 
@@ -301,6 +303,8 @@ Client implementation rules:
 - Searching `Maxx "C"` resolves and displays `増殖するＧ`.
 - An ambiguous query lists candidate card names before any Yuyu-tei price request.
 - A typo such as `Fidraulys` suggests `Fydraulis Harmonia` and requires the user to select it.
+- Searching `Labrynth` does not show the archetype page or Master Duel/game/anime variants.
+- When a card's English and Japanese names differ, the card header uses the English name and shows the Japanese base name separately.
 - The backend generates a Yuyu-tei search URL with the URL-encoded Japanese base name and exposes normalized results to the frontend.
 - The frontend deploys statically to Vercel and calls the persistent backend without a Vercel Function or database.
 - The backend returns Yugipedia metadata, Yuyu-tei prices, and JPY/IDR conversion when sources are available.
