@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import type { CardResult } from '../../types'
 import { money } from '../../types'
 import Filter from './Filter'
+import CardImage from './CardImage'
 import './PriceResults.scss'
 
 export default function PriceResults({ result, rarities, sets, sources, sort, setRarities, setSets, setSources, setSort, onPreview }: { result: CardResult; rarities: string[]; sets: string[]; sources: string[]; sort: string; setRarities: (values: string[]) => void; setSets: (values: string[]) => void; setSources: (values: string[]) => void; setSort: (value: string) => void; onPreview: (preview: { url: string; alt: string }) => void }) {
@@ -13,7 +14,7 @@ export default function PriceResults({ result, rarities, sets, sources, sort, se
   const clear = (setter: (values: string[]) => void) => setter([])
   return <section className="results-section">
     <div className="result-header">
-      {cardImage && <button className="image-button card-image" type="button" onClick={() => onPreview({ url: cardImage, alt: `${result.card.canonicalName} card image` })}><img src={cardImage} alt={`${result.card.canonicalName} card image`} /></button>}
+      <CardImage src={cardImage} alt={`${result.card.canonicalName} card image`} onPreview={onPreview} />
       <div className="card-identity"><p className="eyebrow">Resolved card</p><h2>{result.card.canonicalName}</h2><p className="japanese">{result.card.japaneseBaseName}</p></div>
       <div className="card-actions">{result.card.englishText && <button className="text-toggle" type="button" aria-expanded={showText} onClick={() => setShowText(!showText)}>{showText ? 'Hide text' : 'Show text'}</button>}<a className="wiki-link" href={result.card.sourceUrl} target="_blank" rel="noreferrer">Yugipedia ↗</a></div>
     </div>
