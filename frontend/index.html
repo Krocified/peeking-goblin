@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#11110f" />
+    <title>Peeking Goblin | Card prices</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <p class="eyebrow">Yugioh OCG / market lens</p>
+        <h1>Find the print.<br /><em>Know the price.</em></h1>
+        <p class="lede">Search an English card name. We resolve the Japanese base name, then pull Yuyu-tei listings by printing.</p>
+      </header>
+
+      <form id="search-form" class="search-bar">
+        <label class="sr-only" for="card-name">Card name</label>
+        <input id="card-name" name="name" placeholder='Try Maxx "C"' autocomplete="off" required maxlength="100" />
+        <button type="submit">Search <span aria-hidden="true">↗</span></button>
+      </form>
+
+      <section id="status" class="status" aria-live="polite"></section>
+      <section id="results" hidden></section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
