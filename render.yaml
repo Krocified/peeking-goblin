@@ -1,0 +1,14 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec)
+services:
+  - type: web
+    name: peeking-goblin-backend
+    runtime: docker
+    repo: https://github.com/Krocified/peeking-goblin
+    dockerfilePath: ./backend/Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: FRONTEND_ORIGINS
+        value: https://peeking-goblin.vercel.app
+      - key: WARM_AE
+        value: "1"

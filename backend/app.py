@@ -557,7 +557,11 @@ def api_card_price():
         return jsonify(error=str(error)), 502
 
 
-if __name__ == "__main__":
-    # ponytail: warm AE catalog at startup so first search doesn't wait ~30s; storefront search can't find singles
+# ponytail: warm AE catalog on import so the gunicorn worker is ready before first request;
+# storefront search can't find singles, so the 30s catalog fetch happens in the background
+if os.environ.get("WARM_AE", "1") != "0":
     threading.Thread(target=ae_catalog, daemon=True).start()
+
+
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
