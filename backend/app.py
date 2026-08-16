@@ -23,8 +23,10 @@ REQUEST_TIMEOUT_SECONDS = int(os.environ.get("REQUEST_TIMEOUT_SECONDS", 12))
 YUGIPEDIA_API_URL = os.environ.get("YUGIPEDIA_API_URL", "https://yugipedia.com/api.php")
 YGOPRODECK_API_URL = os.environ.get("YGOPRODECK_API_URL", "https://db.ygoprodeck.com/api/v7/cardinfo.php")
 YUYUTEI_SEARCH_URL = os.environ.get("YUYUTEI_SEARCH_URL", "https://yuyu-tei.jp/sell/ygo/s/search")
-TCG_CORNER_COLLECTION_URL = os.environ.get("TCG_CORNER_COLLECTION_URL", "https://tcg-corner.com/collections/yu-gi-oh-single-card-asia-english/products.json")
+TCG_CORNER_PRODUCTS_URL = os.environ.get("TCG_CORNER_PRODUCTS_URL", "https://tcg-corner.com/products.json")
 AE_CATALOG_CACHE_SECONDS = int(os.environ.get("AE_CATALOG_CACHE_SECONDS", 6 * 3600))
+AE_PROBE_SECONDS = int(os.environ.get("AE_PROBE_SECONDS", 3600))
+DATABASE_URL = os.environ.get("DATABASE_URL")
 EXCHANGE_RATE_URL = os.environ.get("EXCHANGE_RATE_URL", "https://api.frankfurter.dev/v1/latest")
 CANDIDATE_PAGE_SIZE = int(os.environ.get("CANDIDATE_PAGE_SIZE", 20))
 CANDIDATE_CACHE_SECONDS = int(os.environ.get("CANDIDATE_CACHE_SECONDS", 1800))
@@ -126,6 +128,7 @@ def ygoprodeck_candidates(name):
                 matches[card_name] = {
                     "name": card_name,
                     "source": "ygoprodeck",
+                    "id": card.get("id"),
                     "imageUrl": (card.get("card_images") or [{}])[0].get("image_url_small"),
                     "score": SequenceMatcher(None, name.lower(), card_name.lower()).ratio(),
                 }
@@ -185,6 +188,47 @@ def is_physical_card(title, wikitext):
     )
 
 
+def yugipedia_canonical_candidates(candidates):
+    """Map ygoprodeck candidate names to their canonical Yugipedia titles.
+
+    ygoprodeck sometimes ships misspelled names (e.g. "El Shaddoll Meshahrail"
+    vs Yugipedia's "El Shaddoll Meshachrer"); resolving through Yugipedia with
+    redirect-following keeps candidates that actually resolve to a physical card.
+    """
+    if not candidates:
+        return []
+    result = get_json(YUGIPEDIA_API_URL, {
+        "action": "query",
+        "prop": "revisions",
+        "rvprop": "content",
+        "redirects": 1,
+        "format": "json",
+        "titles": "|".join(candidate["name"] for candidate in candidates),
+    })
+    query = result.get("query", {})
+    redirects = {r["from"]: r["to"] for r in query.get("redirects", [])}
+    pages = {}
+    for page in query.get("pages", {}).values():
+        revision = (page.get("revisions") or [{}])[0]
+        pages[page.get("title", "")] = revision.get("*", "")
+    canonical = []
+    for candidate in candidates:
+        name = candidate["name"]
+        title = redirects.get(name, name)
+        wikitext = pages.get(title, "")
+        if not is_physical_card(title, wikitext):
+            continue
+        password = field(wikitext, "password").strip()
+        if candidate.get("id") and password and str(candidate["id"]) != password:
+            continue  # ygoprodeck id must match Yugipedia password
+        canonical.append({
+            "name": title,
+            "source": "yugipedia",
+            "imageFilename": card_image_filename(wikitext),
+        })
+    return canonical
+
+
 def yugipedia_search_titles(name, offset):
     search = get_json(YUGIPEDIA_API_URL, {
         "action": "query",
@@ -208,7 +252,7 @@ def all_candidate_cards(name):
         return cached["value"]
 
     if is_latin_query(name):
-        fast_candidates = ygoprodeck_candidates(name)
+        fast_candidates = yugipedia_canonical_candidates(ygoprodeck_candidates(name))
         if fast_candidates:
             candidate_cache[key] = {"expires": time.time() + CANDIDATE_CACHE_SECONDS, "value": fast_candidates}
             return fast_candidates
@@ -382,12 +426,109 @@ def exchange_rate():
 AE_SET_NUMBER = re.compile(r"^.+-AE.{3}$")
 AE_TITLE = re.compile(r"^(?P<setNumber>\S+)\s+(?P<name>.*?)\s*\((?P<rarity>[^()]*)\)(?:\s*\((?P<condition>[^()]*)\))?$")
 
-ae_catalog_cache = {"expires": 0, "value": None}
+ae_catalog_cache = {"expires": 0, "value": None, "max_published": None}
 ae_catalog_lock = threading.Lock()
+
+
+def db_connect():
+    import psycopg2
+    kwargs = {}
+    if "sslmode=" not in DATABASE_URL:
+        kwargs["sslmode"] = "require"  # Render needs SSL; explicit DSN wins
+    return psycopg2.connect(DATABASE_URL, **kwargs)
+
+
+def db_save_catalog(catalog, max_published):
+    if not DATABASE_URL:
+        return
+    import psycopg2.extras
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ae_catalog (
+                    key text PRIMARY KEY,
+                    catalog jsonb NOT NULL,
+                    max_published text,
+                    fetched_at timestamptz NOT NULL
+                )
+            """)
+            cur.execute(
+                "INSERT INTO ae_catalog (key, catalog, max_published, fetched_at) VALUES ('catalog', %s, %s, now()) "
+                "ON CONFLICT (key) DO UPDATE SET catalog = EXCLUDED.catalog, "
+                "max_published = EXCLUDED.max_published, fetched_at = now()",
+                (psycopg2.extras.Json(catalog), max_published),
+            )
+
+
+def db_load_catalog():
+    if not DATABASE_URL:
+        return None
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT catalog, max_published, fetched_at FROM ae_catalog WHERE key = 'catalog'"
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            catalog, max_published, fetched_at = row
+            return catalog, max_published, fetched_at.timestamp()
 
 
 def ae_catalog_ready():
     return ae_catalog_cache["value"] is not None and ae_catalog_cache["expires"] > time.time()
+
+
+def fetch_full_catalog():
+    """Fetch the store-wide catalog and filter to AE cards. Returns (catalog, max_published)."""
+    catalog = []
+    max_published = ""
+    page = 1
+    while True:
+        try:
+            body = get_json(TCG_CORNER_PRODUCTS_URL, {"limit": 250, "page": page})
+        except requests.RequestException as error:
+            if page > 1 and error.response is not None and error.response.status_code == 429:
+                break  # rate-limited past the end of the catalog
+            raise
+        products = body.get("products", [])
+        if not products:
+            break
+        for product in products:
+            max_published = max(max_published, product.get("published_at") or "")
+            match = AE_TITLE.match(product.get("title", ""))
+            if not match:
+                continue
+            set_number = match.group("setNumber")
+            if not AE_SET_NUMBER.match(set_number):
+                continue
+            variant = (product.get("variants") or [{}])[0]
+            catalog.append({
+                "name": match.group("name"),
+                "setNumber": set_number,
+                "rarity": match.group("rarity") or None,
+                "condition": match.group("condition") or None,
+                "priceUsd": float(variant.get("price") or 0),
+                "inStock": bool(variant.get("available")),
+                "imageUrl": (product.get("images") or [{}])[0].get("src"),
+                "sourceUrl": f"https://tcg-corner.com/products/{product.get('handle', '')}",
+            })
+        page += 1
+        time.sleep(1.0)  # ponytail: politeness delay; Shopify 429s aggressive pagers
+    return catalog, max_published
+
+
+def refresh_catalog():
+    catalog, max_published = fetch_full_catalog()
+    with ae_catalog_lock:
+        ae_catalog_cache["value"] = catalog
+        ae_catalog_cache["max_published"] = max_published
+        ae_catalog_cache["expires"] = time.time() + AE_CATALOG_CACHE_SECONDS
+    try:
+        db_save_catalog(catalog, max_published)
+    except Exception as error:
+        print(f"AE catalog DB save failed: {error!r}")
+    return catalog
 
 
 def ae_catalog():
@@ -396,41 +537,20 @@ def ae_catalog():
     with ae_catalog_lock:
         if ae_catalog_ready():  # another thread warmed it while we waited
             return ae_catalog_cache["value"]
-        catalog = []
-        page = 1
-        while page <= 40:  # ponytail: Shopify hard-caps around page 40; ~7.3k products at 250/page fits
-            try:
-                body = get_json(TCG_CORNER_COLLECTION_URL, {"limit": 250, "page": page})
-            except requests.RequestException as error:
-                if page > 1 and error.response is not None and error.response.status_code == 429:
-                    break  # rate-limited past the end of the catalog
-                raise
-            products = body.get("products", [])
-            if not products:
-                break
-            for product in products:
-                match = AE_TITLE.match(product.get("title", ""))
-                if not match:
-                    continue
-                set_number = match.group("setNumber")
-                if not AE_SET_NUMBER.match(set_number):
-                    continue
-                variant = (product.get("variants") or [{}])[0]
-                catalog.append({
-                    "name": match.group("name"),
-                    "setNumber": set_number,
-                    "rarity": match.group("rarity") or None,
-                    "condition": match.group("condition") or None,
-                    "priceUsd": float(variant.get("price") or 0),
-                    "inStock": bool(variant.get("available")),
-                    "imageUrl": (product.get("images") or [{}])[0].get("src"),
-                    "sourceUrl": f"https://tcg-corner.com/products/{product.get('handle', '')}",
-                })
-            page += 1
-            time.sleep(1.0)  # ponytail: politeness delay; Shopify 429s aggressive pagers
-        ae_catalog_cache["value"] = catalog
-    ae_catalog_cache["expires"] = time.time() + AE_CATALOG_CACHE_SECONDS
-    return catalog
+        try:
+            row = db_load_catalog()
+        except Exception as error:
+            print(f"AE catalog DB load failed: {error!r}")
+            row = None
+        if row:
+            catalog, max_published, fetched_at = row
+            ae_catalog_cache["value"] = catalog
+            ae_catalog_cache["max_published"] = max_published
+            ae_catalog_cache["expires"] = fetched_at + AE_CATALOG_CACHE_SECONDS
+            if not ae_catalog_ready():  # stored catalog is stale; refresh in background
+                threading.Thread(target=refresh_catalog, daemon=True).start()
+            return catalog
+        return refresh_catalog()
 
 
 def to_idr(price, currency, rates):
@@ -563,9 +683,28 @@ def api_card_price():
 
 
 # ponytail: warm AE catalog on import so the gunicorn worker is ready before first request;
-# storefront search can't find singles, so the 30s catalog fetch happens in the background
+# the maintenance loop probes page 1 for new products and refreshes the full catalog on change
 if os.environ.get("WARM_AE", "1") != "0":
-    threading.Thread(target=ae_catalog, daemon=True).start()
+    def ae_maintain_loop():
+        try:
+            ae_catalog()  # hydrate from DB or fetch fresh on boot
+        except Exception as error:
+            print(f"AE catalog warm failed: {error!r}")
+        while True:
+            time.sleep(AE_PROBE_SECONDS)
+            try:
+                if not ae_catalog_ready() or time.time() >= ae_catalog_cache["expires"]:
+                    refresh_catalog()  # cache expired
+                    continue
+                body = get_json(TCG_CORNER_PRODUCTS_URL, {"limit": 250, "page": 1})
+                newest = max((p.get("published_at") or "") for p in body.get("products", []))
+                if newest and newest != ae_catalog_cache["max_published"]:
+                    print(f"TCG Corner catalog changed ({ae_catalog_cache['max_published']} -> {newest}); refreshing")
+                    refresh_catalog()
+            except requests.RequestException as error:
+                print(f"AE catalog probe failed: {error!r}")
+
+    threading.Thread(target=ae_maintain_loop, daemon=True).start()
 
 
 if __name__ == "__main__":
