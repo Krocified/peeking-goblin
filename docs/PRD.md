@@ -58,6 +58,7 @@ If Yugipedia returns multiple possible matches, the UI lists all returned card n
 - Cancel or ignore stale responses when the user starts a newer search.
 - For ambiguous results, show every candidate returned by Yugipedia and require an explicit selection.
 - For likely typos, show up to five fuzzy suggestions and label them as suggestions rather than exact matches.
+- Show each candidate's Yugipedia card art when available; keep the candidate usable as text when art is missing.
 - Exclude Yugipedia pages that are archetypes or other non-card pages; a valid candidate must be a physical card page.
 - Exclude candidates labeled as Master Duel, anime, game, or video-game variants.
 
@@ -318,6 +319,8 @@ Client implementation rules:
 - Changing filters or sort order does not make another Yugipedia or Yuyu-tei request.
 - At least one result can display rarity, set/card number, JPY price, IDR price, stock, and source URL when those fields exist on the source page.
 - The card header can reveal the current English card text from Yugipedia.
+- Selecting a candidate replaces the search input with that card's English name.
+- After a result loads, the masthead contracts so the resolved card and listings receive the visual focus.
 - A listing never displays `Play` as a condition unless the source explicitly provides that condition.
 - Sale listings show an unambiguous sale indicator and current price.
 - Multiple printings are not collapsed into one generic card price.
