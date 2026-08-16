@@ -44,13 +44,13 @@ worker (keeps the in-memory cache and the AE-catalog warm thread in one process)
    - Env vars: `FRONTEND_ORIGINS` = your frontend URL
 3. Render free tier sleeps after ~15 min idle. A free UptimeRobot HTTP check every 5
    min against `/health` keeps it awake.
-4. Note the URL, e.g. `https://peeking-goblin-backend.onrender.com`.
+4. Note the URL, e.g. `https://peeking-goblin.onrender.com`.
 
 **Frontend — Vercel** (free):
 
 1. Push the repo to GitHub, then import it in Vercel.
 2. Set the framework preset to **Vite** and add the env var:
-   `VITE_API_BASE_URL=https://peeking-goblin-backend.onrender.com`
+   `VITE_API_BASE_URL=https://peeking-goblin.onrender.com`
    (Vercel injects `VITE_*` at build time automatically.)
 3. Deploy. The built `dist/` is served by Vercel's CDN.
 
