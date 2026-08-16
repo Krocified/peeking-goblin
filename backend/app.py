@@ -308,8 +308,10 @@ def health():
 def api_card_price():
     name = request.args.get("name", "").strip()
     selected_title = request.args.get("title", "").strip() or None
-    if not name or len(name) > 100:
-        return jsonify(error="A card name is required"), 400
+    if len(name) < 3:
+        return jsonify(error="Enter at least 3 characters"), 400
+    if len(name) > 100:
+        return jsonify(error="Card name must be 100 characters or fewer"), 400
     try:
         return jsonify(card_price(name, selected_title))
     except (requests.RequestException, ValueError) as error:
