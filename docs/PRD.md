@@ -268,7 +268,7 @@ When Yuyu-tei is unavailable, `listings` may be empty and `warnings` must includ
 
 ## 11. Recommended Stack
 
-- **Vite + vanilla JavaScript/CSS:** instant frontend boot, environment injection, and direct deployment to Vercel.
+- **React + TypeScript + Vite + Sass:** typed UI state, environment injection, responsive component styling, and direct deployment to Vercel.
 - **Python + Flask + Requests + BeautifulSoup:** persistent scraper backend, refactoring Solomon's approach against the current Yuyu-tei markup without serverless cold starts.
 - **Native browser `fetch`:** frontend-to-backend requests; no frontend HTTP dependency.
 - **In-memory cache:** five-minute backend cache for the first deployment; add Redis only when multiple backend instances need shared cache.
