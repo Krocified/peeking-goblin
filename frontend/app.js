@@ -33,6 +33,41 @@ function showImage(url, alt) {
   imageDialog.showModal()
 }
 
+function renderCandidates(payload) {
+  results.hidden = false
+  const heading = payload.candidates.length ? 'Choose the card' : 'Card not found'
+  const intro = payload.candidates.length > 1 ? 'More than one card matched. Choose the exact card to continue.' : 'Did you mean one of these cards?'
+  results.innerHTML = `
+    <div class="candidate-header"><p class="eyebrow">${payload.candidates.length > 1 ? 'Ambiguous search' : 'Suggested match'}</p><h2>${heading}</h2><p>${escapeHtml(intro)}</p></div>
+    <div class="candidate-list">${payload.candidates.map((candidate) => `<button class="candidate" data-card-title="${escapeHtml(candidate.name)}" type="button"><strong>${escapeHtml(candidate.name)}</strong><span>${escapeHtml(candidate.source)}</span><span aria-hidden="true">↗</span></button>`).join('') || '<p class="empty">Try the Japanese name or check the spelling.</p>'}</div>`
+  results.querySelectorAll('[data-card-title]').forEach((button) => button.addEventListener('click', () => searchCard(payload.query, button.dataset.cardTitle)))
+}
+
+async function searchCard(name, title = null) {
+  form.querySelector('button').disabled = true
+  results.hidden = true
+  setStatus(title ? 'Loading the selected card and checking Yuyu-tei…' : 'Resolving the card and checking Yuyu-tei…', 'loading')
+  try {
+    const params = new URLSearchParams({ name })
+    if (title) params.set('title', title)
+    const response = await fetch(`${API_BASE}/api/card-price?${params}`)
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Search failed')
+    if (payload.selectionRequired) {
+      setStatus('Choose a card to continue.', 'error')
+      renderCandidates(payload)
+      return
+    }
+    data = payload
+    setStatus('Live lookup complete.', 'success')
+    renderResults()
+  } catch (error) {
+    setStatus(error.message, 'error')
+  } finally {
+    form.querySelector('button').disabled = false
+  }
+}
+
 function render() {
   if (!data) return
   const rarity = new Set([...results.querySelector('#rarity-filter').selectedOptions].map((option) => option.value))
@@ -107,21 +142,7 @@ form.addEventListener('submit', async (event) => {
   event.preventDefault()
   const name = input.value.trim()
   if (!name) return
-  form.querySelector('button').disabled = true
-  results.hidden = true
-  setStatus('Resolving the Japanese name and checking Yuyu-tei…', 'loading')
-  try {
-    const response = await fetch(`${API_BASE}/api/card-price?name=${encodeURIComponent(name)}`)
-    const payload = await response.json()
-    if (!response.ok) throw new Error(payload.error || 'Search failed')
-    data = payload
-    setStatus('Live lookup complete.', 'success')
-    renderResults()
-  } catch (error) {
-    setStatus(error.message, 'error')
-  } finally {
-    form.querySelector('button').disabled = false
-  }
+  searchCard(name)
 })
 
 closeImage.addEventListener('click', () => imageDialog.close())
