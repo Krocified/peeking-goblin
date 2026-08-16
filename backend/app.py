@@ -524,10 +524,15 @@ def card_price(name, selected_title=None, page=0, candidates_only=False, include
 
 @app.after_request
 def cors(response):
-    origin = request.headers.get("Origin")
-    response.headers["Access-Control-Allow-Origin"] = "*" if "*" in allowed_origins else (
-        origin if origin in allowed_origins else next(iter(allowed_origins), "null")
-    )
+    origin = (request.headers.get("Origin") or "").rstrip("/")
+    allowed = {item.rstrip("/") for item in allowed_origins}
+    if "*" in allowed:
+        allow = "*"
+    elif origin in allowed:
+        allow = origin
+    else:
+        allow = "null"
+    response.headers["Access-Control-Allow-Origin"] = allow
     response.headers["Vary"] = "Origin"
     return response
 
