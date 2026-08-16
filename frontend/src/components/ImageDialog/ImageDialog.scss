@@ -1,0 +1,8 @@
+@use '../../styles/tokens' as *;
+
+.image-dialog { position: fixed; inset: 0; width: min(92vw, 560px); max-width: none; padding: 20px; color: $ink; background: $paper-soft; border: 1px solid $line; box-shadow: 0 16px 60px rgba(17,17,15,.28); }
+.image-dialog::backdrop { background: rgba(17,17,15,.72); }
+.image-dialog img { display: block; width: 100%; max-height: 78vh; object-fit: contain; }
+.image-dialog p { margin: 12px 0 0; color: $muted; font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+.dialog-close { position: absolute; top: 10px; right: 10px; min-width: 44px; padding: 0; color: $paper-soft; background: $ink; border: 0; font-size: 28px; line-height: 1; }
+.dialog-close:hover { background: $accent; }

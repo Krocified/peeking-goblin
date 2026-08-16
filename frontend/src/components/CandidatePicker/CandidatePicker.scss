@@ -1,0 +1,26 @@
+@use '../../styles/tokens' as *;
+
+.candidate-section { margin-top: 12px; }
+.candidate-section.is-loading .candidate-list { opacity: .55; pointer-events: none; }
+.section-heading { padding: 34px 0 20px; border-bottom: 1px solid $ink; }
+.section-heading h2 { margin-bottom: 8px; font-size: clamp(30px, 5vw, 50px); letter-spacing: -.06em; }
+.section-heading p:not(.eyebrow):not(.candidate-count) { color: $muted; }
+.candidate-count { color: $accent !important; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.candidate-list { display: grid; gap: 8px; max-width: 720px; padding: 20px 0; }
+.candidate { display: grid; grid-template-columns: 48px 1fr 20px; gap: 16px; align-items: center; width: 100%; min-height: 72px; padding: 12px 16px; color: $ink; text-align: left; background: $paper-soft; border: 1px solid $line; }
+.candidate:hover { color: $paper-soft; background: $accent; border-color: $accent; }
+.candidate-image { width: 48px; aspect-ratio: 2.5 / 3.5; object-fit: cover; border: 1px solid rgba(0,0,0,.14); }
+.candidate-image.placeholder, .listing-image.placeholder { background: $line; }
+.candidate-name { display: grid; gap: 5px; min-width: 0; }
+.candidate-name small { color: $muted; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.candidate:hover .candidate-name small { color: $paper-soft; }
+.candidate-pagination { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 0 0 28px; font: 11px 'DM Mono', monospace; text-transform: uppercase; }
+.page-button { padding: 0 12px; color: $ink; background: transparent; border: 1px solid $line; }
+.page-button:hover { color: $paper-soft; background: $accent; border-color: $accent; }
+.page-select { min-height: 44px; padding: 0 10px; color: $ink; background: $paper-soft; border: 1px solid $line; border-radius: 2px; }
+
+@media (max-width: 800px) {
+  .candidate { grid-template-columns: 40px 1fr 20px; gap: 12px; padding: 10px; }
+  .candidate-image { width: 40px; }
+  .candidate-pagination { flex-wrap: wrap; }
+}

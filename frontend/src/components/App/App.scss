@@ -1,0 +1,12 @@
+@use '../../styles/tokens' as *;
+
+.app-shell { width: min(1080px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 88px; }
+.topline { display: grid; gap: 28px; }
+.is-compact { padding-top: 28px; }
+.is-compact .topline { grid-template-columns: auto minmax(360px, 720px); gap: 24px; align-items: center; }
+
+@media (max-width: 800px) {
+  .app-shell { width: min(100% - 28px, 620px); padding: 32px 0 56px; }
+  .topline, .is-compact .topline { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+  .is-compact { padding-top: 20px; }
+}

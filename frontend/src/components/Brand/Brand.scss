@@ -1,0 +1,16 @@
+@use '../../styles/tokens' as *;
+
+.brand { max-width: 690px; }
+.brand .eyebrow { margin: 0 0 18px; }
+.brand h1 { margin-bottom: 25px; font-size: clamp(40px, 6vw, 64px); line-height: .95; letter-spacing: -.07em; font-weight: 600; white-space: nowrap; }
+.brand h1 em { color: $accent; font-style: normal; }
+.lede { max-width: 500px; color: #5d5a54; line-height: 1.6; font-size: 16px; margin-bottom: 0; }
+
+.is-compact .brand { max-width: none; cursor: pointer; }
+.is-compact .brand .eyebrow { margin-bottom: 8px; }
+.is-compact .brand h1 { margin: 0; font-size: clamp(22px, 3vw, 32px); letter-spacing: -.06em; }
+
+@media (max-width: 800px) {
+  .is-compact .brand h1 { font-size: 28px; }
+  .is-compact .brand .eyebrow { margin-bottom: 4px; }
+}
