@@ -91,6 +91,28 @@ def fuzzy_names(name):
     return [name for name, score in sorted(matches.items(), key=lambda item: item[1], reverse=True) if score >= 0.45][:5]
 
 
+def page_wikitexts(titles):
+    if not titles:
+        return {}
+    result = get_json(YUGIPEDIA_API_URL, {
+        "action": "query",
+        "prop": "revisions",
+        "rvprop": "content",
+        "format": "json",
+        "titles": "|".join(titles),
+    })
+    pages = {}
+    for page in result.get("query", {}).get("pages", {}).values():
+        revision = (page.get("revisions") or [{}])[0]
+        pages[page.get("title", "")] = revision.get("*", "")
+    return pages
+
+
+def is_physical_card(title, wikitext):
+    non_card_variant = re.search(r"\((master duel|anime|game|video game)\)", title, flags=re.I)
+    return not non_card_variant and "{{CardTable2" in wikitext
+
+
 def card_candidates(name):
     search = get_json(YUGIPEDIA_API_URL, {
         "action": "opensearch",
@@ -101,8 +123,19 @@ def card_candidates(name):
     })
     titles = search[1] if len(search) > 1 else []
     if titles:
-        return [{"name": title, "source": "yugipedia"} for title in titles]
-    return [{"name": title, "source": "ygoprodeck"} for title in fuzzy_names(name)]
+        pages = page_wikitexts(titles)
+        return [
+            {"name": title, "source": "yugipedia"}
+            for title in titles
+            if is_physical_card(title, pages.get(title, ""))
+        ]
+    fuzzy = fuzzy_names(name)
+    pages = page_wikitexts(fuzzy)
+    return [
+        {"name": title, "source": "ygoprodeck"}
+        for title in fuzzy
+        if is_physical_card(title, pages.get(title, ""))
+    ]
 
 
 def resolve_card(name, selected_title=None):
@@ -126,9 +159,10 @@ def resolve_card(name, selected_title=None):
     japanese_name = clean_wikitext(field(wikitext, "ja_name"))
     if not japanese_name:
         raise ValueError("Japanese base name not found")
+    english_name = clean_wikitext(field(wikitext, "en_name")) or parsed.get("title", title)
     return {
         "selectionRequired": False,
-        "canonicalName": parsed.get("title", title),
+        "canonicalName": english_name,
         "japaneseBaseName": japanese_name,
         "englishText": clean_wikitext(field(wikitext, "text")),
         "imageUrl": parse_card_image(wikitext),
