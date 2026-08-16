@@ -60,6 +60,7 @@ If Yugipedia returns multiple possible matches, the UI lists all returned card n
 - Paginate large candidate lists and allow loading more results without repeating the price lookup.
 - Build the complete filtered candidate catalog before rendering the ambiguous-search UI, sort it alphabetically, and show the total count.
 - Resolve/render art only for the visible candidate page after the catalog is ready.
+- For Latin/English queries, use YGOPRODeck's fuzzy `fname` path for fast candidate discovery and thumbnails; use Yugipedia to resolve the selected card's Japanese data.
 - For likely typos, show up to five fuzzy suggestions and label them as suggestions rather than exact matches.
 - Show each candidate's Yugipedia card art when available; keep the candidate usable as text when art is missing.
 - Exclude Yugipedia pages that are archetypes or other non-card pages; a valid candidate must be a physical card page.
@@ -203,7 +204,7 @@ Performance acceptance criteria:
 ### Usable From the Browser
 
 - [Yugipedia MediaWiki API](https://yugipedia.com/api.php?action=help): suitable for title search, page content, and card-page metadata. Its API documentation supports cross-origin requests with `origin=*`. The client still needs to parse the relevant card-page data to obtain the Japanese `Base` name and OCG printings.
-- [YGOPRODeck Card API](https://db.ygoprodeck.com/api-guide/): suitable as a fallback for English card identity, card IDs, images, set names, set numbers, rarities, and non-Yuyu-tei market metadata. It is not a replacement for Yuyu-tei JPY pricing or Japanese base-name resolution.
+- [YGOPRODeck Card API](https://db.ygoprodeck.com/api-guide/): suitable for fast English candidate discovery, card IDs, images, set names, set numbers, rarities, and non-Yuyu-tei market metadata. It is not a replacement for Yuyu-tei JPY pricing or Japanese base-name resolution.
 - [Frankfurter API](https://www.frankfurter.app/docs/): suitable for JPY-to-IDR conversion without an API key. Example: `GET https://api.frankfurter.dev/v1/latest?base=JPY&symbols=IDR`. Treat the returned rate as an estimate and show its date.
 - [Solomon API](https://github.com/punparin/solomon-api): a community Flask API that scrapes Yuyu-tei and Big Web. Its documented endpoint is `GET /api/cards?name=<Japanese name>&source=yuyutei` and returns JPY price, rarity, condition, set/card ID, and a source URL.
 
@@ -309,7 +310,7 @@ Client implementation rules:
 - An ambiguous query lists candidate card names before any Yuyu-tei price request.
 - Broad searches such as `goblin` can load additional physical-card candidates page by page.
 - Candidate pages support direct page navigation and show the total number of possible cards.
-- Candidate thumbnails use direct Yugipedia image URLs when available and retain a visible placeholder when an image cannot load.
+- Candidate thumbnails use the fastest available source (YGOPRODeck for English queries, Yugipedia for Japanese queries) and retain a visible placeholder when an image cannot load.
 - Rush Duel cards never appear in the OCG candidate list.
 - A typo such as `Fidraulys` suggests `Fydraulis Harmonia` and requires the user to select it.
 - Searching `Labrynth` does not show the archetype page or Master Duel/game/anime variants.
