@@ -39,8 +39,11 @@ function renderCandidates(payload) {
   const intro = payload.candidates.length > 1 ? 'More than one card matched. Choose the exact card to continue.' : 'Did you mean one of these cards?'
   results.innerHTML = `
     <div class="candidate-header"><p class="eyebrow">${payload.candidates.length > 1 ? 'Ambiguous search' : 'Suggested match'}</p><h2>${heading}</h2><p>${escapeHtml(intro)}</p></div>
-    <div class="candidate-list">${payload.candidates.map((candidate) => `<button class="candidate" data-card-title="${escapeHtml(candidate.name)}" type="button"><strong>${escapeHtml(candidate.name)}</strong><span>${escapeHtml(candidate.source)}</span><span aria-hidden="true">↗</span></button>`).join('') || '<p class="empty">Try the Japanese name or check the spelling.</p>'}</div>`
-  results.querySelectorAll('[data-card-title]').forEach((button) => button.addEventListener('click', () => searchCard(payload.query, button.dataset.cardTitle)))
+    <div class="candidate-list">${payload.candidates.map((candidate) => `<button class="candidate" data-card-title="${escapeHtml(candidate.name)}" type="button">${candidate.imageUrl ? `<img class="candidate-image" src="${escapeHtml(candidate.imageUrl)}" alt="" loading="lazy" />` : '<span class="candidate-image placeholder" aria-hidden="true"></span>'}<span class="candidate-name"><strong>${escapeHtml(candidate.name)}</strong><small>${escapeHtml(candidate.source)}</small></span><span aria-hidden="true">↗</span></button>`).join('') || '<p class="empty">Try the Japanese name or check the spelling.</p>'}</div>`
+  results.querySelectorAll('[data-card-title]').forEach((button) => button.addEventListener('click', () => {
+    input.value = button.dataset.cardTitle
+    searchCard(button.dataset.cardTitle, button.dataset.cardTitle)
+  }))
 }
 
 async function searchCard(name, title = null) {
@@ -59,6 +62,7 @@ async function searchCard(name, title = null) {
       return
     }
     data = payload
+    document.body.classList.add('has-results')
     setStatus('Live lookup complete.', 'success')
     renderResults()
   } catch (error) {
