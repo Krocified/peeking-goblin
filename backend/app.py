@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 import time
 import unicodedata
 from difflib import SequenceMatcher
@@ -22,6 +23,8 @@ REQUEST_TIMEOUT_SECONDS = int(os.environ.get("REQUEST_TIMEOUT_SECONDS", 12))
 YUGIPEDIA_API_URL = os.environ.get("YUGIPEDIA_API_URL", "https://yugipedia.com/api.php")
 YGOPRODECK_API_URL = os.environ.get("YGOPRODECK_API_URL", "https://db.ygoprodeck.com/api/v7/cardinfo.php")
 YUYUTEI_SEARCH_URL = os.environ.get("YUYUTEI_SEARCH_URL", "https://yuyu-tei.jp/sell/ygo/s/search")
+TCG_CORNER_COLLECTION_URL = os.environ.get("TCG_CORNER_COLLECTION_URL", "https://tcg-corner.com/collections/yu-gi-oh-single-card-asia-english/products.json")
+AE_CATALOG_CACHE_SECONDS = int(os.environ.get("AE_CATALOG_CACHE_SECONDS", 6 * 3600))
 EXCHANGE_RATE_URL = os.environ.get("EXCHANGE_RATE_URL", "https://api.frankfurter.dev/v1/latest")
 CANDIDATE_PAGE_SIZE = int(os.environ.get("CANDIDATE_PAGE_SIZE", 20))
 CANDIDATE_CACHE_SECONDS = int(os.environ.get("CANDIDATE_CACHE_SECONDS", 1800))
@@ -283,6 +286,7 @@ def resolve_card(name, selected_title=None, page=0, candidates_only=False):
     english_name = clean_wikitext(field(wikitext, "en_name")) or parsed.get("title", title)
     return {
         "selectionRequired": False,
+        "resolvedTitle": parsed.get("title", title),
         "canonicalName": english_name,
         "japaneseBaseName": japanese_name,
         "englishText": clean_wikitext(field(wikitext, "text")),
@@ -345,6 +349,8 @@ def fetch_yuyutei(japanese_name, card_sets):
             old_price = price(old_price_node.get_text(" ", strip=True)) if old_price_node else None
             listings.append({
                 "japaneseName": japanese_name,
+                "source": "yuyutei",
+                "currency": "JPY",
                 "setNumber": set_number,
                 "setName": set_info.get("setName"),
                 "rarity": rarity or (set_info.get("rarities") or [None])[0],
@@ -362,17 +368,100 @@ def fetch_yuyutei(japanese_name, card_sets):
 
 
 def exchange_rate():
-    result = get_json(EXCHANGE_RATE_URL, {"base": "JPY", "symbols": "IDR"})
+    # rates[currency] = IDR per 1 unit of currency; add symbols here to support more sources
+    result = get_json(EXCHANGE_RATE_URL, {"base": "IDR", "symbols": "JPY,USD"})
+    rates = {currency: 1 / value for currency, value in result["rates"].items()}
     return {
-        "base": "JPY",
+        "base": "IDR",
         "target": "IDR",
-        "value": result["rates"]["IDR"],
+        "rates": rates,
         "retrievedAt": result["date"],
     }
 
 
+AE_SET_NUMBER = re.compile(r"^.+-AE.{3}$")
+AE_TITLE = re.compile(r"^(?P<setNumber>\S+)\s+(?P<name>.*?)\s*\((?P<rarity>[^()]*)\)(?:\s*\((?P<condition>[^()]*)\))?$")
+
+ae_catalog_cache = {"expires": 0, "value": None}
+ae_catalog_lock = threading.Lock()
+
+
+def ae_catalog_ready():
+    return ae_catalog_cache["value"] is not None and ae_catalog_cache["expires"] > time.time()
+
+
+def ae_catalog():
+    if ae_catalog_ready():
+        return ae_catalog_cache["value"]
+    with ae_catalog_lock:
+        if ae_catalog_ready():  # another thread warmed it while we waited
+            return ae_catalog_cache["value"]
+        catalog = []
+        page = 1
+        while page <= 40:  # ponytail: Shopify hard-caps around page 40; ~7.3k products at 250/page fits
+            try:
+                body = get_json(TCG_CORNER_COLLECTION_URL, {"limit": 250, "page": page})
+            except requests.RequestException as error:
+                if page > 1 and error.response is not None and error.response.status_code == 429:
+                    break  # rate-limited past the end of the catalog
+                raise
+            products = body.get("products", [])
+            if not products:
+                break
+            for product in products:
+                match = AE_TITLE.match(product.get("title", ""))
+                if not match:
+                    continue
+                set_number = match.group("setNumber")
+                if not AE_SET_NUMBER.match(set_number):
+                    continue
+                variant = (product.get("variants") or [{}])[0]
+                catalog.append({
+                    "name": match.group("name"),
+                    "setNumber": set_number,
+                    "rarity": match.group("rarity") or None,
+                    "condition": match.group("condition") or None,
+                    "priceUsd": float(variant.get("price") or 0),
+                    "inStock": bool(variant.get("available")),
+                    "imageUrl": (product.get("images") or [{}])[0].get("src"),
+                    "sourceUrl": f"https://tcg-corner.com/products/{product.get('handle', '')}",
+                })
+            page += 1
+            time.sleep(1.0)  # ponytail: politeness delay; Shopify 429s aggressive pagers
+        ae_catalog_cache["value"] = catalog
+    ae_catalog_cache["expires"] = time.time() + AE_CATALOG_CACHE_SECONDS
+    return catalog
+
+
+def to_idr(price, currency, rates):
+    if price is None or not rates or currency not in rates:
+        return None
+    return round(price * rates[currency])
+
+
+def fetch_asian_english(canonical_name, rates):
+    listings = []
+    lowered = canonical_name.strip().lower()
+    for item in ae_catalog():
+        if lowered != item["name"].strip().lower():
+            score = SequenceMatcher(None, lowered, item["name"].strip().lower()).ratio()
+            if score < 0.85:
+                continue
+        listings.append({
+            **item,
+            "source": "tcg-corner",
+            "currency": "USD",
+            "priceJpy": None,
+            "priceIdr": to_idr(item["priceUsd"], "USD", rates),
+            "onSale": None,
+            "stockText": None,
+            "sourceUrl": item["sourceUrl"],
+        })
+    return listings
+
+
 def available_filters(listings):
-    prices = [item["priceJpy"] for item in listings]
+    prices = [item["priceJpy"] for item in listings if item.get("priceJpy") is not None]
     return {
         "rarities": sorted({item["rarity"] for item in listings if item.get("rarity")}),
         "sets": sorted({item["setName"] for item in listings if item.get("setName")}),
@@ -380,8 +469,9 @@ def available_filters(listings):
     }
 
 
-def card_price(name, selected_title=None, page=0, candidates_only=False):
-    key = f"{name.strip().lower()}::{(selected_title or '').lower()}"
+def card_price(name, selected_title=None, page=0, candidates_only=False, include_ae=False):
+    key = f"{name.strip().lower()}::{(selected_title or '').lower()}::ae={int(include_ae)}"
+    ae_pending = False
     if candidates_only or page:
         return resolve_card(name, selected_title, page, candidates_only)
     cached = cache.get(key)
@@ -405,17 +495,30 @@ def card_price(name, selected_title=None, page=0, candidates_only=False):
         warnings.append("IDR conversion unavailable")
 
     for listing in listings:
-        listing["priceIdr"] = round(listing["priceJpy"] * rate["value"]) if rate else None
+        listing["priceIdr"] = to_idr(listing["priceJpy"], "JPY", rate["rates"] if rate else None)
+    if include_ae:
+        if ae_catalog_ready():
+            try:
+                listings.extend(fetch_asian_english(card["canonicalName"], rate["rates"] if rate else None))
+            except requests.RequestException as error:
+                print(f"TCG Corner fetch failed: {error!r}")
+                warnings.append("Asian English prices unavailable right now. Try again in a moment.")
+        else:
+            ae_pending = True
+            warnings.append("Asian English prices are still loading — they'll appear in a moment.")
     result = {
         "query": name,
+        "aePending": ae_pending,
         "card": card,
         "exchangeRate": rate,
         "filters": available_filters(listings),
         "listings": listings,
         "warnings": warnings,
         "yuyuteiSearchUrl": YUYUTEI_SEARCH_URL + "?" + urlencode({"search_word": unicodedata.normalize("NFKC", card["japaneseBaseName"]).replace("\u2010", "-")}),
+        "tcgCornerSearchUrl": "https://tcg-corner.com/search?" + urlencode({"q": card["canonicalName"]}),
     }
-    cache[key] = {"expires": time.time() + CACHE_SECONDS, "value": result}
+    if not ae_pending:  # don't cache an incomplete result; the client refetches when AE lands
+        cache[key] = {"expires": time.time() + CACHE_SECONDS, "value": result}
     return result
 
 
@@ -443,15 +546,18 @@ def api_card_price():
     except ValueError:
         return jsonify(error="Invalid candidate offset"), 400
     candidates_only = request.args.get("candidates_only") == "1"
+    include_ae = request.args.get("include_ae") == "1"
     if len(name) < 3:
         return jsonify(error="Enter at least 3 characters"), 400
     if len(name) > 100:
         return jsonify(error="Card name must be 100 characters or fewer"), 400
     try:
-        return jsonify(card_price(name, selected_title, page, candidates_only))
+        return jsonify(card_price(name, selected_title, page, candidates_only, include_ae))
     except (requests.RequestException, ValueError) as error:
         return jsonify(error=str(error)), 502
 
 
 if __name__ == "__main__":
+    # ponytail: warm AE catalog at startup so first search doesn't wait ~30s; storefront search can't find singles
+    threading.Thread(target=ae_catalog, daemon=True).start()
     app.run(host="0.0.0.0", port=PORT)
