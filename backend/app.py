@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from difflib import SequenceMatcher
 from urllib.parse import quote, urlencode
 
 import requests
@@ -17,6 +18,7 @@ PORT = int(os.environ.get("PORT", 8787))
 CACHE_SECONDS = int(os.environ.get("CACHE_SECONDS", 300))
 REQUEST_TIMEOUT_SECONDS = int(os.environ.get("REQUEST_TIMEOUT_SECONDS", 12))
 YUGIPEDIA_API_URL = os.environ.get("YUGIPEDIA_API_URL", "https://yugipedia.com/api.php")
+YGOPRODECK_API_URL = os.environ.get("YGOPRODECK_API_URL", "https://db.ygoprodeck.com/api/v7/cardinfo.php")
 YUYUTEI_SEARCH_URL = os.environ.get("YUYUTEI_SEARCH_URL", "https://yuyu-tei.jp/sell/ygo/s/search")
 EXCHANGE_RATE_URL = os.environ.get("EXCHANGE_RATE_URL", "https://api.frankfurter.dev/v1/latest")
 allowed_origins = {
@@ -71,18 +73,47 @@ def parse_card_image(wikitext):
     return None
 
 
-def resolve_card(name):
+def fuzzy_names(name):
+    token = re.split(r"\s+", name.strip())[0]
+    queries = [token[:length] for length in range(min(len(token), 8), 3, -1)]
+    matches = {}
+    for query in queries:
+        try:
+            result = get_json(YGOPRODECK_API_URL, {"fname": query})
+        except requests.RequestException:
+            continue
+        for card in result.get("data", []):
+            card_name = card.get("name")
+            if card_name:
+                matches[card_name] = SequenceMatcher(None, name.lower(), card_name.lower()).ratio()
+        if matches:
+            break
+    return [name for name, score in sorted(matches.items(), key=lambda item: item[1], reverse=True) if score >= 0.45][:5]
+
+
+def card_candidates(name):
     search = get_json(YUGIPEDIA_API_URL, {
         "action": "opensearch",
         "search": name,
-        "limit": 5,
+        "limit": 50,
         "namespace": 0,
         "format": "json",
     })
     titles = search[1] if len(search) > 1 else []
-    title = next((item for item in titles if item.lower() == name.lower()), None) or (titles[0] if titles else None)
+    if titles:
+        return [{"name": title, "source": "yugipedia"} for title in titles]
+    return [{"name": title, "source": "ygoprodeck"} for title in fuzzy_names(name)]
+
+
+def resolve_card(name, selected_title=None):
+    candidates = card_candidates(name) if not selected_title else []
+    title = selected_title or (
+        candidates[0]["name"]
+        if len(candidates) == 1 and candidates[0]["source"] == "yugipedia"
+        else None
+    )
     if not title:
-        raise ValueError("Card not found on Yugipedia")
+        return {"selectionRequired": True, "query": name, "candidates": candidates}
 
     page = get_json(YUGIPEDIA_API_URL, {
         "action": "parse",
@@ -96,6 +127,7 @@ def resolve_card(name):
     if not japanese_name:
         raise ValueError("Japanese base name not found")
     return {
+        "selectionRequired": False,
         "canonicalName": parsed.get("title", title),
         "japaneseBaseName": japanese_name,
         "englishText": clean_wikitext(field(wikitext, "text")),
@@ -181,13 +213,15 @@ def available_filters(listings):
     }
 
 
-def card_price(name):
-    key = name.strip().lower()
+def card_price(name, selected_title=None):
+    key = f"{name.strip().lower()}::{(selected_title or '').lower()}"
     cached = cache.get(key)
     if cached and cached["expires"] > time.time():
         return cached["value"]
 
-    card = resolve_card(name)
+    card = resolve_card(name, selected_title)
+    if card.get("selectionRequired"):
+        return card
     warnings = []
     try:
         listings = fetch_yuyutei(card["japaneseBaseName"], card["sets"])
@@ -233,10 +267,11 @@ def health():
 @app.get("/api/card-price")
 def api_card_price():
     name = request.args.get("name", "").strip()
+    selected_title = request.args.get("title", "").strip() or None
     if not name or len(name) > 100:
         return jsonify(error="A card name is required"), 400
     try:
-        return jsonify(card_price(name))
+        return jsonify(card_price(name, selected_title))
     except (requests.RequestException, ValueError) as error:
         return jsonify(error=str(error)), 502
 
