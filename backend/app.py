@@ -66,11 +66,17 @@ def parse_sets(wikitext):
 
 def parse_card_image(wikitext):
     current = field(wikitext, "current_image")
+    fallback = None
     for line in field(wikitext, "image").splitlines():
         parts = [part.strip() for part in line.split(";")]
+        if len(parts) == 1 and parts[0]:
+            fallback = parts[0]
+            continue
+        if len(parts) > 1 and parts[1] and fallback is None:
+            fallback = parts[1]
         if len(parts) > 1 and parts[0] == current and parts[1]:
             return "https://yugipedia.com/wiki/Special:FilePath/" + quote(parts[1])
-    return None
+    return "https://yugipedia.com/wiki/Special:FilePath/" + quote(fallback) if fallback else None
 
 
 def fuzzy_names(name):
@@ -125,14 +131,14 @@ def card_candidates(name):
     if titles:
         pages = page_wikitexts(titles)
         return [
-            {"name": title, "source": "yugipedia"}
+            {"name": title, "source": "yugipedia", "imageUrl": parse_card_image(pages.get(title, ""))}
             for title in titles
             if is_physical_card(title, pages.get(title, ""))
         ]
     fuzzy = fuzzy_names(name)
     pages = page_wikitexts(fuzzy)
     return [
-        {"name": title, "source": "ygoprodeck"}
+        {"name": title, "source": "ygoprodeck", "imageUrl": parse_card_image(pages.get(title, ""))}
         for title in fuzzy
         if is_physical_card(title, pages.get(title, ""))
     ]
