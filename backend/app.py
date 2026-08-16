@@ -309,8 +309,18 @@ def stock_state(product):
 def fetch_yuyutei(japanese_name, card_sets):
     # ponytail: NFKC flattens full-width "Ｄ－ＨＥＲＯ" to "D-HERO"; Yuyu-tei only matches half-width
     japanese_name = unicodedata.normalize("NFKC", japanese_name).replace("\u2010", "-")
-    response = session.get(YUYUTEI_SEARCH_URL, params={"search_word": japanese_name}, timeout=REQUEST_TIMEOUT_SECONDS)
-    response.raise_for_status()
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = session.get(YUYUTEI_SEARCH_URL, params={"search_word": japanese_name}, timeout=REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            break
+        except requests.RequestException as error:
+            last_error = error
+            session.close()  # drop poisoned keep-alive connections
+            time.sleep(1 + attempt)
+    else:
+        raise last_error
     soup = BeautifulSoup(response.text, "html.parser")
     listings = []
 
@@ -386,7 +396,8 @@ def card_price(name, selected_title=None, page=0, candidates_only=False):
         listings = fetch_yuyutei(card["japaneseBaseName"], card["sets"])
     except requests.RequestException as error:
         listings = []
-        warnings.append(f"Yuyu-tei unavailable: {error}")
+        print(f"Yuyu-tei fetch failed after retries: {error!r}")
+        warnings.append("Yuyu-tei is unreachable right now — prices could not be fetched. Try again in a moment.")
     try:
         rate = exchange_rate()
     except requests.RequestException:
