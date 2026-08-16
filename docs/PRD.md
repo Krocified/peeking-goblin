@@ -57,6 +57,7 @@ If Yugipedia returns multiple possible matches, the UI lists all returned card n
 - Debounce autocomplete only if autocomplete is added; the initial MVP can be submit-driven.
 - Cancel or ignore stale responses when the user starts a newer search.
 - For ambiguous results, show every candidate returned by Yugipedia and require an explicit selection.
+- Paginate large candidate lists and allow loading more results without repeating the price lookup.
 - For likely typos, show up to five fuzzy suggestions and label them as suggestions rather than exact matches.
 - Show each candidate's Yugipedia card art when available; keep the candidate usable as text when art is missing.
 - Exclude Yugipedia pages that are archetypes or other non-card pages; a valid candidate must be a physical card page.
@@ -303,6 +304,7 @@ Client implementation rules:
 
 - Searching `Maxx "C"` resolves and displays `増殖するＧ`.
 - An ambiguous query lists candidate card names before any Yuyu-tei price request.
+- Broad searches such as `goblin` can load additional physical-card candidates page by page.
 - A typo such as `Fidraulys` suggests `Fydraulis Harmonia` and requires the user to select it.
 - Searching `Labrynth` does not show the archetype page or Master Duel/game/anime variants.
 - When a card's English and Japanese names differ, the card header uses the English name and shows the Japanese base name separately.
