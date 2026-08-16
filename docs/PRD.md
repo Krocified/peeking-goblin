@@ -58,6 +58,8 @@ If Yugipedia returns multiple possible matches, the UI lists all returned card n
 - Cancel or ignore stale responses when the user starts a newer search.
 - For ambiguous results, show every candidate returned by Yugipedia and require an explicit selection.
 - Paginate large candidate lists and allow loading more results without repeating the price lookup.
+- Build the complete filtered candidate catalog before rendering the ambiguous-search UI, sort it alphabetically, and show the total count.
+- Resolve/render art only for the visible candidate page after the catalog is ready.
 - For likely typos, show up to five fuzzy suggestions and label them as suggestions rather than exact matches.
 - Show each candidate's Yugipedia card art when available; keep the candidate usable as text when art is missing.
 - Exclude Yugipedia pages that are archetypes or other non-card pages; a valid candidate must be a physical card page.
@@ -306,6 +308,7 @@ Client implementation rules:
 - Searching `Maxx "C"` resolves and displays `増殖するＧ`.
 - An ambiguous query lists candidate card names before any Yuyu-tei price request.
 - Broad searches such as `goblin` can load additional physical-card candidates page by page.
+- Candidate pages support direct page navigation and show the total number of possible cards.
 - Candidate thumbnails use direct Yugipedia image URLs when available and retain a visible placeholder when an image cannot load.
 - Rush Duel cards never appear in the OCG candidate list.
 - A typo such as `Fidraulys` suggests `Fydraulis Harmonia` and requires the user to select it.
