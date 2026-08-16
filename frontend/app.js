@@ -45,6 +45,10 @@ function renderCandidates(payload) {
     input.value = button.dataset.cardTitle
     searchCard(button.dataset.cardTitle, button.dataset.cardTitle)
   }))
+  results.querySelectorAll('.candidate-image img').forEach((image) => image.addEventListener('error', () => {
+    image.hidden = true
+    image.parentElement.classList.add('image-missing')
+  }))
   results.querySelector('#load-more-candidates')?.addEventListener('click', async (event) => {
     event.currentTarget.disabled = true
     event.currentTarget.textContent = 'Loading…'
