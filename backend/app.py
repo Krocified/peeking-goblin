@@ -66,6 +66,11 @@ def parse_sets(wikitext):
 
 
 def parse_card_image(wikitext):
+    filename = card_image_filename(wikitext)
+    return "https://yugipedia.com/wiki/Special:FilePath/" + quote(filename) if filename else None
+
+
+def card_image_filename(wikitext):
     current = field(wikitext, "current_image")
     fallback = None
     for line in field(wikitext, "image").splitlines():
@@ -76,8 +81,8 @@ def parse_card_image(wikitext):
         if len(parts) > 1 and parts[1] and fallback is None:
             fallback = parts[1]
         if len(parts) > 1 and parts[0] == current and parts[1]:
-            return "https://yugipedia.com/wiki/Special:FilePath/" + quote(parts[1])
-    return "https://yugipedia.com/wiki/Special:FilePath/" + quote(fallback) if fallback else None
+            return parts[1]
+    return fallback
 
 
 def fuzzy_names(name):
@@ -115,9 +120,34 @@ def page_wikitexts(titles):
     return pages
 
 
+def direct_image_urls(pages):
+    filenames = {title: card_image_filename(wikitext) for title, wikitext in pages.items()}
+    filenames = {title: filename for title, filename in filenames.items() if filename}
+    if not filenames:
+        return {}
+    result = get_json(YUGIPEDIA_API_URL, {
+        "action": "query",
+        "prop": "imageinfo",
+        "iiprop": "url",
+        "format": "json",
+        "titles": "|".join(f"File:{filename}" for filename in filenames.values()),
+    })
+    urls_by_filename = {}
+    for page in result.get("query", {}).get("pages", {}).values():
+        info = (page.get("imageinfo") or [{}])[0]
+        if info.get("url"):
+            urls_by_filename[page.get("title", "").removeprefix("File:")] = info["url"]
+    return {title: urls_by_filename.get(filename) for title, filename in filenames.items()}
+
+
 def is_physical_card(title, wikitext):
     non_card_variant = re.search(r"\((master duel|anime|game|video game)\)", title, flags=re.I)
-    return not non_card_variant and "{{CardTable2" in wikitext
+    return (
+        not non_card_variant
+        and "{{CardTable2" in wikitext
+        and bool(field(wikitext, "jp_sets").strip())
+        and not field(wikitext, "rush_sets").strip()
+    )
 
 
 def yugipedia_search_titles(name, offset):
@@ -142,8 +172,9 @@ def card_candidates(name, offset=0):
     while next_offset is not None and len(titles) < CANDIDATE_PAGE_SIZE:
         page_titles, next_page_offset = yugipedia_search_titles(name, next_offset)
         pages = page_wikitexts(page_titles)
+        image_urls = direct_image_urls(pages)
         titles.extend(
-            {"name": title, "source": "yugipedia", "imageUrl": parse_card_image(pages.get(title, ""))}
+            {"name": title, "source": "yugipedia", "imageUrl": image_urls.get(title) or parse_card_image(pages.get(title, ""))}
             for title in page_titles
             if is_physical_card(title, pages.get(title, ""))
         )
@@ -160,8 +191,9 @@ def card_candidates(name, offset=0):
         return [], pagination
     fuzzy = fuzzy_names(name)
     pages = page_wikitexts(fuzzy)
+    image_urls = direct_image_urls(pages)
     return [
-        {"name": title, "source": "ygoprodeck", "imageUrl": parse_card_image(pages.get(title, ""))}
+        {"name": title, "source": "ygoprodeck", "imageUrl": image_urls.get(title) or parse_card_image(pages.get(title, ""))}
         for title in fuzzy
         if is_physical_card(title, pages.get(title, ""))
     ], {"offset": 0, "nextOffset": None, "hasMore": False}
