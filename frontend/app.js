@@ -145,7 +145,11 @@ function renderResults() {
 form.addEventListener('submit', async (event) => {
   event.preventDefault()
   const name = input.value.trim()
-  if (!name) return
+  if (name.length < 3) {
+    setStatus('Enter at least 3 characters.', 'error')
+    input.focus()
+    return
+  }
   searchCard(name)
 })
 
