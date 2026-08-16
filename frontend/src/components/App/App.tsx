@@ -19,32 +19,46 @@ export default function App() {
   const [preview, setPreview] = useState<{ url: string; alt: string } | null>(null)
   const [rarities, setRarities] = useState<string[]>([])
   const [sets, setSets] = useState<string[]>([])
+  const [sources, setSources] = useState<string[]>([])
   const [sort, setSort] = useState('low')
+  const [includeAe, setIncludeAe] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const compact = Boolean(result || candidates)
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
-  async function search(name: string, title?: string, page?: number, candidatesOnly = false) {
+  // background refetch when AE catalog finishes warming — no spinner, no reload
+  useEffect(() => {
+    if (!result?.aePending) return
+    const timer = setTimeout(() => search(result.query, result.card.resolvedTitle, undefined, false, true), 4000)
+    return () => clearTimeout(timer)
+  }, [result])
+
+  async function search(name: string, title?: string, page?: number, candidatesOnly = false, silent = false) {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
-    setLoading(true)
-    setStatus(title ? 'Loading the selected card…' : candidatesOnly ? 'Loading card names…' : 'Searching card names…')
-    setStatusType('loading')
+    if (!silent) {
+      setLoading(true)
+      setStatus(title ? 'Loading the selected card…' : candidatesOnly ? 'Loading card names…' : 'Searching card names…')
+      setStatusType('loading')
+    }
     try {
       const params = new URLSearchParams({ name })
       if (title) params.set('title', title)
       if (page != null) params.set('page', String(page))
       if (candidatesOnly) params.set('candidates_only', '1')
+      if (includeAe) params.set('include_ae', '1')
       const response = await fetch(`${API_BASE}/api/card-price?${params}`, { signal: controller.signal })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || 'Search failed')
       if (body.selectionRequired && (body as CandidatePayload).candidates.length > 1) {
         setResult(null)
         setCandidates(body as CandidatePayload)
-        setStatus('Choose a card to continue.')
-        setStatusType('error')
+        if (!silent) {
+          setStatus('Choose a card to continue.')
+          setStatusType('error')
+        }
       } else if (body.selectionRequired) {
         search(name, (body as CandidatePayload).candidates[0]?.name || name)
         return
@@ -52,19 +66,26 @@ export default function App() {
         startTransition(() => {
           setResult(body as CardResult)
           setCandidates(null)
-          setRarities([])
-          setSets([])
-          setSort('low')
+          if (!silent) {
+            setRarities([])
+            setSets([])
+            setSources([])
+            setSort('low')
+          }
         })
-        setStatus('Live lookup complete.')
-        setStatusType('success')
+        if (!silent) {
+          setStatus('Live lookup complete.')
+          setStatusType('success')
+        }
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
-      setStatus(error instanceof Error ? error.message : 'Search failed')
-      setStatusType('error')
+      if (!silent) {
+        setStatus(error instanceof Error ? error.message : 'Search failed')
+        setStatusType('error')
+      }
     } finally {
-      if (!controller.signal.aborted) setLoading(false)
+      if (!controller.signal.aborted && !silent) setLoading(false)
     }
   }
 
@@ -91,11 +112,11 @@ export default function App() {
   return <main className={`app-shell ${compact ? 'is-compact' : ''}`}>
     <div className="topline">
       <Brand compact={compact} onHome={goHome} />
-      <SearchForm query={query} setQuery={setQuery} loading={loading} onSubmit={submit} />
+      <SearchForm query={query} setQuery={setQuery} loading={loading} includeAe={includeAe} setIncludeAe={setIncludeAe} onSubmit={submit} />
     </div>
     <p className={`status ${statusType}`} aria-live="polite">{loading && <span className="spinner" aria-hidden="true" />}{status}</p>
     {candidates && <CandidatePicker payload={candidates} loading={loading} onSelect={(name) => { setQuery(name); search(name, name) }} onPage={(page) => search(candidates.query, undefined, page, true)} />}
-    {result && <PriceResults result={result} rarities={rarities} sets={sets} sort={sort} setRarities={setRarities} setSets={setSets} setSort={setSort} onPreview={setPreview} />}
+    {result && <PriceResults result={result} rarities={rarities} sets={sets} sources={sources} sort={sort} setRarities={setRarities} setSets={setSets} setSources={setSources} setSort={setSort} onPreview={setPreview} />}
     {loading && <div className="loading-bar" role="status"><span /></div>}
     <ImageDialog preview={preview} onClose={() => setPreview(null)} />
   </main>

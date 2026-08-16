@@ -19,7 +19,8 @@ export default function Brand({
       </h1>
       {!compact && (
         <p className="lede">
-          Type a card name in English. We'll show you live prices in seconds.
+          Type a card name in English. We'll peek live prices quickly. OCG
+          prices are from Yuyu-tei. AE prices are from TCG Corner.
         </p>
       )}
     </header>

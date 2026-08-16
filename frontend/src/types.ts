@@ -2,11 +2,14 @@ export type Candidate = { name: string; source: string; imageUrl?: string | null
 export type Pagination = { page: number; pageSize: number; total: number; totalPages: number; hasPrevious: boolean; hasMore: boolean }
 export type CandidatePayload = { selectionRequired: true; query: string; candidates: Candidate[]; pagination?: Pagination }
 export type Listing = {
+  source: string
+  currency: string
   setNumber: string | null
   setName: string | null
   rarity: string | null
   condition: string | null
-  priceJpy: number
+  priceJpy: number | null
+  priceUsd?: number | null
   priceIdr: number | null
   onSale: boolean | null
   inStock: boolean | null
@@ -16,12 +19,14 @@ export type Listing = {
 }
 export type CardResult = {
   query: string
-  card: { canonicalName: string; japaneseBaseName: string; englishText?: string; imageUrl?: string | null; sourceUrl: string }
-  exchangeRate: { value: number; retrievedAt: string } | null
+  aePending?: boolean
+  card: { canonicalName: string; resolvedTitle?: string; japaneseBaseName: string; englishText?: string; imageUrl?: string | null; sourceUrl: string }
+  exchangeRate: { base: string; target: string; rates: Record<string, number>; retrievedAt: string } | null
   filters: { rarities: string[]; sets: string[] }
   listings: Listing[]
   warnings: string[]
   yuyuteiSearchUrl: string
+  tcgCornerSearchUrl?: string
 }
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL

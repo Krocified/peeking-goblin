@@ -17,7 +17,8 @@
 
 .meta-row, .results-line { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; color: $muted; line-height: 1.5; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
 .meta-row a { overflow-wrap: anywhere; }
-.controls { display: grid; grid-template-columns: 1.1fr 1.5fr 160px auto; gap: 12px; align-items: end; padding: 20px 0; border-bottom: 1px solid $line; }
+.meta-links { display: flex; gap: 18px; flex-wrap: wrap; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; padding: 20px 0; border-bottom: 1px solid $line; }
 .filter-control { display: grid; gap: 7px; }
 .filter-field { position: relative; }
 .filter-field select { width: 100%; min-height: 48px; padding: 8px 34px 8px 10px; color: $ink; background: $paper-soft; border: 1px solid $line; border-radius: 2px; }
@@ -37,6 +38,8 @@
 .muted { color: $muted; font-size: 13px; }
 .chip { display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 999px; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .06em; vertical-align: 1px; }
 .chip.out-of-stock { color: $red; background: rgba(162,62,49,.12); border: 1px solid rgba(162,62,49,.4); }
+.chip.source-tag { margin-left: 0; margin-right: 8px; padding: 1px 6px; color: $accent; background: rgba(42,154,114,.1); border: 1px solid rgba(42,154,114,.35); }
+.chip.source-tag.jp { color: $indigo; background: rgba(83,82,137,.1); border-color: rgba(83,82,137,.35); }
 .price-stack { display: grid; gap: 5px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .price-stack strong { font-size: 20px; }
 .price-stack span { color: $muted; font-size: 13px; }
