@@ -15,6 +15,8 @@ button.card-image .no-image, .no-image.card-image { border: 1px dashed $line; co
 .card-identity .eyebrow { margin: 0 0 8px; }
 .card-identity h2 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 50px); letter-spacing: -.06em; }
 .japanese { margin: 0; font-size: 24px; }
+.bookmark { min-height: 36px; padding: 0 12px; color: $ink; background: transparent; border: 1px solid $line; font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+.bookmark:hover, .bookmark.is-bookmarked { color: $paper-soft; background: $accent; border-color: $accent; }
 .card-actions { display: flex; align-items: center; gap: 16px; }
 .wiki-link { font: 12px 'DM Mono', monospace; white-space: nowrap; }
 .text-toggle { padding: 0 12px; min-height: 36px; color: $ink; background: transparent; border: 1px solid $line; font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
@@ -24,14 +26,14 @@ button.card-image .no-image, .no-image.card-image { border: 1px dashed $line; co
 .meta-row, .results-line { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; color: $muted; line-height: 1.5; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
 .meta-row a { overflow-wrap: anywhere; }
 .meta-links { display: flex; gap: 18px; flex-wrap: wrap; }
-.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; padding: 20px 0; border-bottom: 1px solid $line; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; padding: 20px 0; border-bottom: 1px solid $line; }
 .filter-control { display: grid; gap: 7px; }
 .filter-field { position: relative; }
 .filter-field select { width: 100%; min-height: 48px; padding: 8px 34px 8px 10px; color: $ink; background: $paper-soft; border: 1px solid $line; border-radius: 2px; }
 .filter-clear { position: absolute; top: 50%; right: 24px; transform: translateY(-50%); display: grid; place-items: center; min-height: 30px; min-width: 30px; padding: 0; color: $muted; background: transparent; border: 0; border-radius: 50%; font-size: 18px; line-height: 1; }
 .filter-clear:hover { color: $red; }
-.sort-control { display: block; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
-.sort-control select { margin-top: 7px; width: 100%; min-height: 48px; padding: 8px 10px; color: $ink; background: $paper-soft; border: 1px solid $line; border-radius: 2px; }
+.sort-control { display: grid; gap: 7px; min-width: 180px; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.sort-control select { width: 100%; min-height: 48px; padding: 8px 10px; color: $ink; background: $paper-soft; border: 1px solid $line; border-radius: 2px; }
 .clear { min-height: 48px; padding: 0 12px; color: $muted; background: transparent; border: 1px solid $line; font: 11px 'DM Mono', monospace; text-transform: uppercase; }
 .clear:hover { color: $paper-soft; background: $accent; border-color: $accent; }
 

@@ -1,13 +1,30 @@
 import { useEffect, useRef, useState, startTransition } from 'react'
 import type { FormEvent } from 'react'
-import type { CandidatePayload, CardResult } from '../../types'
+import type { CandidatePayload, CardResult, SavedSearch } from '../../types'
 import { API_BASE } from '../../types'
 import Brand from '../Brand/Brand'
 import SearchForm from '../SearchForm/SearchForm'
 import CandidatePicker from '../CandidatePicker/CandidatePicker'
 import PriceResults from '../PriceResults/PriceResults'
 import ImageDialog from '../ImageDialog/ImageDialog'
+import SearchMemory from '../SearchMemory/SearchMemory'
 import './App.scss'
+
+const HISTORY_KEY = 'peeking-goblin.search-history'
+const BOOKMARKS_KEY = 'peeking-goblin.search-bookmarks'
+
+function readSavedSearches(key: string): SavedSearch[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]')
+    return Array.isArray(value) ? value.filter((item): item is SavedSearch => item && typeof item.query === 'string' && typeof item.includeAe === 'boolean' && typeof item.createdAt === 'number') : []
+  } catch {
+    return []
+  }
+}
+
+function searchKey(search: SavedSearch) {
+  return `${search.query.trim().toLowerCase()}::${search.title?.trim().toLowerCase() || ''}::${search.includeAe}`
+}
 
 export default function App() {
   const [query, setQuery] = useState('')
@@ -22,19 +39,25 @@ export default function App() {
   const [sources, setSources] = useState<string[]>([])
   const [sort, setSort] = useState('low')
   const [includeAe, setIncludeAe] = useState(false)
+  const [resultIncludeAe, setResultIncludeAe] = useState(false)
+  const [history, setHistory] = useState<SavedSearch[]>(() => readSavedSearches(HISTORY_KEY))
+  const [bookmarks, setBookmarks] = useState<SavedSearch[]>(() => readSavedSearches(BOOKMARKS_KEY))
+  const [showBookmarks, setShowBookmarks] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const compact = Boolean(result || candidates)
 
   useEffect(() => () => abortRef.current?.abort(), [])
+  useEffect(() => localStorage.setItem(HISTORY_KEY, JSON.stringify(history)), [history])
+  useEffect(() => localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarks)), [bookmarks])
 
   // background refetch when AE catalog finishes warming — no spinner, no reload
   useEffect(() => {
     if (!result?.aePending) return
-    const timer = setTimeout(() => search(result.query, result.card.resolvedTitle, undefined, false, true), 4000)
+    const timer = setTimeout(() => search(result.query, result.card.resolvedTitle, undefined, false, true, resultIncludeAe), 4000)
     return () => clearTimeout(timer)
   }, [result])
 
-  async function search(name: string, title?: string, page?: number, candidatesOnly = false, silent = false) {
+  async function search(name: string, title?: string, page?: number, candidatesOnly = false, silent = false, ae = includeAe) {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -48,7 +71,7 @@ export default function App() {
       if (title) params.set('title', title)
       if (page != null) params.set('page', String(page))
       if (candidatesOnly) params.set('candidates_only', '1')
-      if (includeAe) params.set('include_ae', '1')
+      if (ae) params.set('include_ae', '1')
       const response = await fetch(`${API_BASE}/api/card-price?${params}`, { signal: controller.signal })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || 'Search failed')
@@ -60,17 +83,20 @@ export default function App() {
           setStatusType('error')
         }
       } else if (body.selectionRequired) {
-        search(name, (body as CandidatePayload).candidates[0]?.name || name)
+        search(name, (body as CandidatePayload).candidates[0]?.name || name, undefined, false, false, ae)
         return
       } else {
         startTransition(() => {
           setResult(body as CardResult)
+          setResultIncludeAe(ae)
           setCandidates(null)
           if (!silent) {
             setRarities([])
             setSets([])
             setSources([])
             setSort('low')
+            const saved = { query: name, title: (body as CardResult).card.resolvedTitle, includeAe: ae, createdAt: Date.now() }
+            setHistory((current) => [saved, ...current.filter((item) => searchKey(item) !== searchKey(saved))].slice(0, 10))
           }
         })
         if (!silent) {
@@ -87,6 +113,20 @@ export default function App() {
     } finally {
       if (!controller.signal.aborted && !silent) setLoading(false)
     }
+  }
+
+  function runSavedSearch(saved: SavedSearch) {
+    setQuery(saved.query)
+    setIncludeAe(saved.includeAe)
+    search(saved.query, saved.title, undefined, false, false, saved.includeAe)
+  }
+
+  function toggleBookmark() {
+    if (!result) return
+    const saved = { query: result.card.canonicalName, title: result.card.resolvedTitle, includeAe: resultIncludeAe, createdAt: Date.now() }
+    setBookmarks((current) => current.some((item) => searchKey(item) === searchKey(saved))
+      ? current.filter((item) => searchKey(item) !== searchKey(saved))
+      : [saved, ...current])
   }
 
   function submit(event: FormEvent) {
@@ -107,6 +147,7 @@ export default function App() {
     setStatus('')
     setStatusType('')
     setLoading(false)
+    setShowBookmarks(false)
   }
 
   return <main className={`app-shell ${compact ? 'is-compact' : ''}`}>
@@ -114,9 +155,10 @@ export default function App() {
       <Brand compact={compact} onHome={goHome} />
       <SearchForm query={query} setQuery={setQuery} loading={loading} includeAe={includeAe} setIncludeAe={setIncludeAe} onSubmit={submit} />
     </div>
+    <SearchMemory compact={compact} showBookmarks={showBookmarks} onToggle={() => setShowBookmarks((shown) => !shown)} history={history} bookmarks={bookmarks} onRun={runSavedSearch} onRemoveBookmark={(saved) => setBookmarks((current) => current.filter((item) => searchKey(item) !== searchKey(saved)))} />
     <p className={`status ${statusType}`} aria-live="polite">{loading && <span className="spinner" aria-hidden="true" />}{status}</p>
     {candidates && <CandidatePicker payload={candidates} loading={loading} onSelect={(name) => { setQuery(name); search(name, name) }} onPage={(page) => search(candidates.query, undefined, page, true)} />}
-    {result && <PriceResults result={result} rarities={rarities} sets={sets} sources={sources} sort={sort} setRarities={setRarities} setSets={setSets} setSources={setSources} setSort={setSort} onPreview={setPreview} />}
+    {result && <PriceResults result={result} rarities={rarities} sets={sets} sources={sources} sort={sort} setRarities={setRarities} setSets={setSets} setSources={setSources} setSort={setSort} onPreview={setPreview} bookmarked={bookmarks.some((item) => searchKey(item) === searchKey({ query: result.card.canonicalName, title: result.card.resolvedTitle, includeAe: resultIncludeAe, createdAt: 0 }))} onToggleBookmark={toggleBookmark} />}
     {loading && <div className="loading-bar" role="status"><span /></div>}
     <ImageDialog preview={preview} onClose={() => setPreview(null)} />
   </main>

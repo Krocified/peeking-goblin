@@ -1,0 +1,16 @@
+@use '../../styles/tokens' as *;
+
+.search-memory { display: grid; gap: 18px; margin-top: 18px; }
+.search-memory.compact { gap: 10px; justify-items: start; }
+.memory-toggle { min-height: 36px; padding: 0 12px; color: $ink; background: $paper-soft; border: 1px solid $line; font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+.memory-toggle:hover { color: $paper-soft; background: $accent; border-color: $accent; }
+.search-memory.compact > div { width: 100%; }
+.search-memory > div { display: grid; gap: 8px; }
+.search-memory .eyebrow { margin: 0; }
+.search-memory ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.search-memory li { display: flex; }
+.search-memory li > button:first-child { min-height: 36px; padding: 0 12px; color: $ink; background: transparent; border: 1px solid $line; font-size: 13px; }
+.search-memory li > button:first-child:hover { border-color: $accent; color: $accent; }
+.search-memory li > button span { margin-left: 8px; color: $accent; font: 10px 'DM Mono', monospace; text-transform: uppercase; }
+.memory-remove { min-width: 32px; min-height: 36px; padding: 0; color: $muted; background: $paper-soft; border: 1px solid $line; border-left: 0; font-size: 18px; }
+.memory-remove:hover { color: $red; }

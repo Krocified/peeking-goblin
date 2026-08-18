@@ -1,6 +1,7 @@
 export type Candidate = { name: string; source: string; imageUrl?: string | null }
 export type Pagination = { page: number; pageSize: number; total: number; totalPages: number; hasPrevious: boolean; hasMore: boolean }
 export type CandidatePayload = { selectionRequired: true; query: string; candidates: Candidate[]; pagination?: Pagination }
+export type SavedSearch = { query: string; title?: string; includeAe: boolean; createdAt: number }
 export type Listing = {
   source: string
   currency: string
