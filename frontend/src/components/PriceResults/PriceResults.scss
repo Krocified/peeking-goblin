@@ -1,7 +1,7 @@
 @use '../../styles/tokens' as *;
 
 .results-section { margin-top: 12px; }
-.result-header { display: flex; align-items: end; gap: 24px; padding: 34px 0 24px; border-bottom: 1px solid $ink; }
+.result-header { display: flex; align-items: end; gap: 24px; padding: 0 0 24px; border-bottom: 1px solid $ink; }
 .card-image { width: 92px; aspect-ratio: 2.5 / 3.5; position: relative; display: grid; place-items: center; }
 .image-button { display: block; min-height: 0; padding: 0; overflow: hidden; cursor: zoom-in; background: transparent; border: 0; }
 .image-button img { display: block; width: 100%; height: 100%; object-fit: cover; border: 1px solid rgba(0,0,0,.14); }
@@ -26,13 +26,13 @@ button.card-image .no-image, .no-image.card-image { border: 1px dashed $line; co
 .meta-row, .results-line { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; color: $muted; line-height: 1.5; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
 .meta-row a { overflow-wrap: anywhere; }
 .meta-links { display: flex; gap: 18px; flex-wrap: wrap; }
-.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; padding: 20px 0; border-bottom: 1px solid $line; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; padding: 20px 0; border-bottom: 1px solid $line; }
 .filter-control { display: grid; gap: 7px; }
 .filter-field { position: relative; }
 .filter-field select { width: 100%; min-height: 48px; padding: 8px 34px 8px 10px; color: $ink; background: $paper-soft; border: 1px solid $line; border-radius: 2px; }
 .filter-clear { position: absolute; top: 50%; right: 24px; transform: translateY(-50%); display: grid; place-items: center; min-height: 30px; min-width: 30px; padding: 0; color: $muted; background: transparent; border: 0; border-radius: 50%; font-size: 18px; line-height: 1; }
 .filter-clear:hover { color: $red; }
-.sort-control { display: grid; gap: 7px; min-width: 180px; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.sort-control { display: grid; gap: 7px; width: 100%; min-width: 0; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
 .sort-control select { width: 100%; min-height: 48px; padding: 8px 10px; color: $ink; background: $paper-soft; border: 1px solid $line; border-radius: 2px; }
 .clear { min-height: 48px; padding: 0 12px; color: $muted; background: transparent; border: 1px solid $line; font: 11px 'DM Mono', monospace; text-transform: uppercase; }
 .clear:hover { color: $paper-soft; background: $accent; border-color: $accent; }
@@ -54,12 +54,14 @@ button.card-image .no-image, .no-image.card-image { border: 1px dashed $line; co
 .source-link { text-align: right; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
 
 @media (max-width: 800px) {
+  .results-section { margin-top: 0; }
   .result-header { flex-direction: column; align-items: flex-start; }
   .card-image { width: 84px; }
   .card-actions { flex-wrap: wrap; }
   .japanese { font-size: 20px; }
   .meta-row, .results-line { flex-direction: column; align-items: stretch; }
-  .controls { grid-template-columns: 1fr; }
+  .controls { grid-template-columns: 1fr; padding: 12px 0; }
+  .sort-control { min-width: 0; }
   .clear { width: 100%; }
   .listing { grid-template-columns: 40px 1fr auto; gap: 12px; }
   .listing-image { width: 40px; }

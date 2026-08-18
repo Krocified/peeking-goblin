@@ -150,16 +150,19 @@ export default function App() {
     setShowBookmarks(false)
   }
 
-  return <main className={`app-shell ${compact ? 'is-compact' : ''}`}>
-    <div className="topline">
-      <Brand compact={compact} onHome={goHome} />
-      <SearchForm query={query} setQuery={setQuery} loading={loading} includeAe={includeAe} setIncludeAe={setIncludeAe} onSubmit={submit} />
-    </div>
-    <SearchMemory compact={compact} showBookmarks={showBookmarks} onToggle={() => setShowBookmarks((shown) => !shown)} history={history} bookmarks={bookmarks} onRun={runSavedSearch} onRemoveBookmark={(saved) => setBookmarks((current) => current.filter((item) => searchKey(item) !== searchKey(saved)))} />
-    <p className={`status ${statusType}`} aria-live="polite">{loading && <span className="spinner" aria-hidden="true" />}{status}</p>
-    {candidates && <CandidatePicker payload={candidates} loading={loading} onSelect={(name) => { setQuery(name); search(name, name) }} onPage={(page) => search(candidates.query, undefined, page, true)} />}
-    {result && <PriceResults result={result} rarities={rarities} sets={sets} sources={sources} sort={sort} setRarities={setRarities} setSets={setSets} setSources={setSources} setSort={setSort} onPreview={setPreview} bookmarked={bookmarks.some((item) => searchKey(item) === searchKey({ query: result.card.canonicalName, title: result.card.resolvedTitle, includeAe: resultIncludeAe, createdAt: 0 }))} onToggleBookmark={toggleBookmark} />}
-    {loading && <div className="loading-bar" role="status"><span /></div>}
-    <ImageDialog preview={preview} onClose={() => setPreview(null)} />
-  </main>
+  return <>
+    <main className={`app-shell ${compact ? 'is-compact' : ''}`}>
+      <div className="topline">
+        <Brand compact={compact} onHome={goHome} />
+        <SearchForm query={query} setQuery={setQuery} loading={loading} includeAe={includeAe} setIncludeAe={setIncludeAe} onSubmit={submit} />
+      </div>
+      <SearchMemory compact={compact} showBookmarks={showBookmarks} onToggle={() => setShowBookmarks((shown) => !shown)} history={history} bookmarks={bookmarks} onClearHistory={() => setHistory([])} onClearBookmarks={() => setBookmarks([])} onRun={runSavedSearch} onRemoveBookmark={(saved) => setBookmarks((current) => current.filter((item) => searchKey(item) !== searchKey(saved)))} />
+      <p className={`status ${statusType}`} aria-live="polite">{loading && <span className="spinner" aria-hidden="true" />}{status}</p>
+      {candidates && <CandidatePicker payload={candidates} loading={loading} onSelect={(name) => { setQuery(name); search(name, name) }} onPage={(page) => search(candidates.query, undefined, page, true)} />}
+      {result && <PriceResults result={result} rarities={rarities} sets={sets} sources={sources} sort={sort} setRarities={setRarities} setSets={setSets} setSources={setSources} setSort={setSort} onPreview={setPreview} bookmarked={bookmarks.some((item) => searchKey(item) === searchKey({ query: result.card.canonicalName, title: result.card.resolvedTitle, includeAe: resultIncludeAe, createdAt: 0 }))} onToggleBookmark={toggleBookmark} />}
+      {loading && <div className="loading-bar" role="status"><span /></div>}
+      <ImageDialog preview={preview} onClose={() => setPreview(null)} />
+    </main>
+    <footer className="site-footer"><span><a href="https://github.com/Krocified/peeking-goblin" target="_blank" rel="noreferrer">Open source</a> · built by <a href="https://github.com/Krocified" target="_blank" rel="noreferrer">Krocified</a></span><a className="footer-action" href="https://github.com/Krocified/peeking-goblin/issues" target="_blank" rel="noreferrer">Report an issue ↗</a></footer>
+  </>
 }

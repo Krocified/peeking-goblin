@@ -3,7 +3,9 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 * { box-sizing: border-box; }
+html, body, #root { min-height: 100%; }
 body { margin: 0; min-width: 320px; color: $ink; background: $paper; font-family: 'Space Grotesk', sans-serif; -webkit-font-smoothing: antialiased; }
+#root { min-height: 100vh; display: flex; flex-direction: column; }
 button, input, select { font: inherit; }
 button { min-height: 44px; cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }

@@ -1,12 +1,19 @@
 @use '../../styles/tokens' as *;
 
-.app-shell { width: min(1080px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 88px; }
+.app-shell { flex: 1; width: min(1080px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 88px; }
 .topline { display: grid; gap: 28px; }
 .is-compact { padding-top: 28px; }
+.site-footer { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding: 24px 20px; color: rgba(244,241,234,.62); background: $ink; font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+.site-footer a { color: $paper-soft; }
+.site-footer a:hover { color: $accent; }
+.site-footer .footer-action { padding: 8px 10px; border: 1px solid rgba(244,241,234,.32); }
+.site-footer .footer-action:hover { color: $paper-soft; border-color: $accent; background: $green; }
+
 .is-compact .topline { grid-template-columns: auto minmax(360px, 720px); gap: 24px; align-items: center; }
 
 @media (max-width: 800px) {
   .app-shell { width: min(100% - 28px, 620px); padding: 32px 0 56px; }
   .topline, .is-compact .topline { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
   .is-compact { padding-top: 20px; }
+  .is-compact .status { min-height: 20px; margin: 4px 0 0; }
 }

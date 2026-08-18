@@ -6,6 +6,10 @@
 .memory-toggle:hover { color: $paper-soft; background: $accent; border-color: $accent; }
 .search-memory.compact > div { width: 100%; }
 .search-memory > div { display: grid; gap: 8px; }
+.memory-heading { display: flex; align-items: center; gap: 10px; }
+.memory-heading p { margin: 0; }
+.memory-heading button { min-height: 28px; padding: 0 7px; color: $muted; background: transparent; border: 1px solid $line; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+.memory-heading button:hover { color: $red; border-color: $red; }
 .search-memory .eyebrow { margin: 0; }
 .search-memory ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .search-memory li { display: flex; }
