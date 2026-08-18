@@ -57,6 +57,12 @@ worker (keeps the in-memory cache and the AE-catalog warm thread in one process)
 The frontend is a static SPA; it only *calls* the backend, it doesn't serve it, so the
 two live on different free hosts.
 
+**Asian English catalog refresh — GitHub Actions:** `.github/workflows/update-ae-catalog.yml`
+runs every six hours and can also be started manually. Add the Render External Database URL
+as the repository secret `DATABASE_URL`. The workflow runs `backend/load_catalog.py` and
+replaces the single cached catalog row. It does not recreate an expired Render Free Postgres
+database; that still requires manual replacement.
+
 ## Frontend structure
 ```
 frontend/src/
@@ -68,9 +74,10 @@ frontend/src/
     App/                   # state + search logic + layout
     Brand/                 # header (click to go home in compact view)
     SearchForm/
-    CandidatePicker/       # ambiguous-match picker + pagination
-    PriceResults/          # card header, filters/sort, listings (+ Filter)
-    ImageDialog/           # card image preview modal
+  CandidatePicker/       # ambiguous-match picker + pagination
+  PriceResults/          # card header, filters/sort, listings (+ Filter)
+  SearchMemory/          # local recent searches and bookmarks
+  ImageDialog/           # card image preview modal
 ```
 Each component folder holds its component and its `.scss` (minimal, token-based).
 
@@ -80,4 +87,6 @@ Each component folder holds its component and its `.scss` (minimal, token-based)
 - Out-of-stock chips, sale indicators, JPY/IDR prices
 - Loading states: top progress bar, inline spinner, disabled controls
 - Asian English prices via TCG Corner (opt-in toggle), USD→IDR conversion, JP/AE source filter
+- Latest 10 searches and bookmarks, stored locally in the browser
 - Mobile-responsive
+- Open-source footer with GitHub profile and issue links
